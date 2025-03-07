@@ -38,6 +38,10 @@ The system employs a multi-agent architecture integrated within an asynchronous 
 - **Iterative improvement**: The system continuously refines hypotheses based on feedback and evaluation
 - **Deep verification capabilities**: Rigorous assessment of hypotheses through causal reasoning, assumption analysis, and probabilistic evaluation
 - **Computational simulation**: Modeling of hypotheses to test predictions, analyze sensitivity to parameters, and identify emergent properties
+- **Domain-specific knowledge integration**: Grounds hypotheses in specialized knowledge from scientific domains
+- **Cross-domain inspiration**: Applies concepts from other scientific domains to inspire innovative thinking
+- **Adaptive evolution strategies**: Intelligently selects improvement approaches based on review patterns
+- **Scientific ontology integration**: Utilizes domain ontologies to connect concepts and relationships
 - **Experimental protocol generation**: Development of detailed, practical protocols to test hypotheses in the lab
 - **Tournament-based ranking**: Hypotheses are evaluated and ranked through simulated scientific debates
 - **Enhanced research overviews**: Comprehensive summaries with causal structures, verification approaches, and testable predictions

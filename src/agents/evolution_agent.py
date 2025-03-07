@@ -5,7 +5,8 @@ Evolution Agent for improving existing hypotheses.
 import json
 import logging
 import random
-from typing import Dict, List, Any, Optional, Tuple
+import os
+from typing import Dict, List, Any, Optional, Tuple, Set
 
 from .base_agent import BaseAgent
 from ..config.config import SystemConfig
@@ -15,15 +16,28 @@ from ..core.models import (
     Review, 
     HypothesisSource, 
     HypothesisStatus, 
-    ResearchFocus
+    ResearchFocus,
+    Citation
 )
 from ..tools.web_search import WebSearchTool
+from ..tools.domain_specific.knowledge_manager import DomainKnowledgeManager
+from ..tools.domain_specific.ontology import DomainOntology
 
 logger = logging.getLogger("co_scientist")
 
 class EvolutionAgent(BaseAgent):
     """
     Agent responsible for improving existing hypotheses.
+    
+    The Evolution Agent employs various strategies to improve hypotheses, including:
+    1. Standard improvements based on reviews
+    2. Combinations of multiple promising hypotheses
+    3. Cross-domain inspiration for novel perspectives
+    4. Domain-specific knowledge integration for scientific grounding
+    5. Out-of-the-box creative approaches
+    6. Simplification for clarity and testability
+    7. Targeted evolution based on research focus areas
+    8. Analogical reasoning from other scientific fields
     """
     
     def __init__(self, config: SystemConfig):
@@ -39,6 +53,137 @@ class EvolutionAgent(BaseAgent):
         self.web_search = None
         if config.web_search_enabled:
             self.web_search = WebSearchTool(config.web_search_api_key)
+            
+        # Initialize domain knowledge manager
+        self.domain_knowledge = DomainKnowledgeManager(config.get("domain_knowledge", {}))
+        
+        # Track available ontologies
+        self.ontologies = {}
+        self._load_ontologies()
+        
+        # Evolution strategies with weights (for random selection)
+        self.evolution_strategies = {
+            "improve": 0.3,           # Standard improvements
+            "combine": 0.2,           # Combine multiple hypotheses
+            "domain_knowledge": 0.2,  # Integrate domain-specific knowledge
+            "out_of_box": 0.1,        # Generate creative, unconventional hypotheses
+            "cross_domain": 0.1,      # Apply concepts from other domains
+            "simplify": 0.1,          # Simplify complex hypotheses
+        }
+        
+    def _load_ontologies(self):
+        """Load available domain ontologies."""
+        try:
+            # Load ontologies from the ontologies directory
+            ontology_dir = os.path.join(os.path.dirname(__file__), "../tools/domain_specific/ontologies")
+            if os.path.exists(ontology_dir):
+                for filename in os.listdir(ontology_dir):
+                    if filename.endswith("_ontology.json"):
+                        domain = filename.replace("_ontology.json", "")
+                        self.ontologies[domain] = DomainOntology(domain)
+                        logger.info(f"Registered {domain} ontology for Evolution Agent")
+        except Exception as e:
+            logger.warning(f"Error loading ontologies: {e}")
+    
+    async def select_evolution_strategy(self, 
+                                 hypothesis: Hypothesis,
+                                 research_goal: ResearchGoal,
+                                 reviews: List[Review] = None) -> str:
+        """
+        Select an appropriate evolution strategy based on hypothesis characteristics and reviews.
+        
+        Args:
+            hypothesis (Hypothesis): The hypothesis to evolve
+            research_goal (ResearchGoal): The research goal
+            reviews (List[Review], optional): Reviews of the hypothesis. Defaults to None.
+            
+        Returns:
+            str: The selected strategy
+        """
+        # If no reviews, default to standard improvement
+        if not reviews:
+            return "improve"
+            
+        # Extract review critiques and scores
+        critiques = []
+        for review in reviews:
+            critiques.extend(review.critiques)
+            
+        avg_novelty = sum(r.novelty_score for r in reviews if r.novelty_score is not None) / len([r for r in reviews if r.novelty_score is not None]) if any(r.novelty_score is not None for r in reviews) else None
+        avg_testability = sum(r.testability_score for r in reviews if r.testability_score is not None) / len([r for r in reviews if r.testability_score is not None]) if any(r.testability_score is not None for r in reviews) else None
+            
+        # Analyze critiques to determine best strategy
+        critique_text = " ".join(critiques).lower()
+        
+        # Check for signs that domain knowledge integration would help
+        domain_knowledge_indicators = ["lacks scientific grounding", "needs more evidence", "insufficient literature support",
+                                      "lacks specificity", "should cite", "references needed", "theory gap"]
+        
+        # Check for signs that simplification would help
+        simplification_indicators = ["too complex", "hard to understand", "needs clarity", "convoluted", 
+                                    "overly complicated", "difficult to test", "too many components"]
+        
+        # Check for signs that out-of-box thinking would help
+        out_of_box_indicators = ["conventional", "lacks novelty", "similar to existing", "not original", 
+                                "incremental", "derivative", "standard approach"]
+        
+        # Count indicators in critiques
+        domain_count = sum(1 for indicator in domain_knowledge_indicators if indicator in critique_text)
+        simplify_count = sum(1 for indicator in simplification_indicators if indicator in critique_text)
+        creative_count = sum(1 for indicator in out_of_box_indicators if indicator in critique_text)
+        
+        # Make decision based on counts and scores
+        if creative_count > 0 or (avg_novelty is not None and avg_novelty < 5.0):
+            if creative_count > domain_count and creative_count > simplify_count:
+                # Novelty is the biggest issue - try creative approaches
+                return random.choice(["out_of_box", "cross_domain"])
+                
+        if domain_count > 0:
+            if domain_count > simplify_count:
+                # Domain knowledge is the biggest issue
+                return "domain_knowledge"
+                
+        if simplify_count > 0 or (avg_testability is not None and avg_testability < 5.0):
+            if simplify_count > domain_count:
+                # Complexity is the biggest issue
+                return "simplify"
+                
+        # Default to standard improvement
+        return "improve"
+    
+    async def evolve_hypothesis(self, 
+                           hypothesis: Hypothesis, 
+                           research_goal: ResearchGoal,
+                           reviews: List[Review] = None) -> Hypothesis:
+        """
+        Evolve a hypothesis using the most appropriate strategy.
+        
+        Args:
+            hypothesis (Hypothesis): The hypothesis to evolve
+            research_goal (ResearchGoal): The research goal
+            reviews (List[Review], optional): Reviews of the hypothesis. Defaults to None.
+            
+        Returns:
+            Hypothesis: The evolved hypothesis
+        """
+        # Select an evolution strategy
+        strategy = await self.select_evolution_strategy(hypothesis, research_goal, reviews)
+        logger.info(f"Selected evolution strategy: {strategy} for hypothesis {hypothesis.id}")
+        
+        # Apply the selected strategy
+        if strategy == "improve":
+            return await self.improve_hypothesis(hypothesis, research_goal, reviews)
+        elif strategy == "domain_knowledge":
+            return await self.improve_with_domain_knowledge(hypothesis, research_goal, reviews)
+        elif strategy == "out_of_box":
+            return await self.generate_out_of_box_hypothesis(research_goal, [hypothesis])
+        elif strategy == "cross_domain":
+            return await self.apply_cross_domain_inspiration(hypothesis, research_goal, reviews)
+        elif strategy == "simplify":
+            return await self.simplify_hypothesis(hypothesis, research_goal)
+        else:
+            # Fallback to standard improvement
+            return await self.improve_hypothesis(hypothesis, research_goal, reviews)
     
     async def improve_hypothesis(self, 
                             hypothesis: Hypothesis, 
@@ -175,7 +320,8 @@ class EvolutionAgent(BaseAgent):
                 metadata={
                     "research_goal_id": research_goal.id,
                     "improvements_made": data.get("improvements_made", []),
-                    "improvement_rationale": data.get("rationale", "")
+                    "improvement_rationale": data.get("rationale", ""),
+                    "evolution_strategy": "improve"
                 }
             )
             
@@ -188,6 +334,445 @@ class EvolutionAgent(BaseAgent):
             
             # Return the original hypothesis in case of error
             return hypothesis
+    
+    async def improve_with_domain_knowledge(self,
+                                       hypothesis: Hypothesis,
+                                       research_goal: ResearchGoal,
+                                       reviews: List[Review] = None) -> Hypothesis:
+        """
+        Improve a hypothesis by integrating domain-specific knowledge.
+        
+        Args:
+            hypothesis (Hypothesis): The hypothesis to improve
+            research_goal (ResearchGoal): The research goal
+            reviews (List[Review], optional): Reviews of the hypothesis. Defaults to None.
+            
+        Returns:
+            Hypothesis: The improved hypothesis with domain knowledge
+        """
+        logger.info(f"Improving hypothesis {hypothesis.id} with domain knowledge")
+        
+        # Detect potential domains from research goal and hypothesis
+        domains = await self._detect_domains(research_goal, hypothesis)
+        
+        # Prepare domain knowledge context
+        domain_context = ""
+        citations = []
+        
+        # If we have domain ontologies, use them
+        ontology_context = ""
+        for domain in domains:
+            if domain in self.ontologies:
+                ontology = self.ontologies[domain]
+                if ontology.initialize():
+                    # Find relevant concepts based on hypothesis and research goal
+                    search_terms = self._extract_key_terms(hypothesis, research_goal)
+                    
+                    relevant_concepts = []
+                    for term in search_terms:
+                        concepts = ontology.search_concepts(term, limit=3)
+                        for concept in concepts:
+                            # Add concept if it's not already in the list
+                            if not any(c["id"] == concept["id"] for c in relevant_concepts):
+                                relevant_concepts.append(concept)
+                    
+                    # Format concepts for the prompt
+                    if relevant_concepts:
+                        concepts_text = "\n\n".join([
+                            f"Concept: {concept['name']}\n"
+                            f"Description: {concept['description']}\n"
+                            f"Related concepts: {', '.join([rel['name'] for rel in ontology.get_related_concepts(concept['id'])[:5]])}"
+                            for concept in relevant_concepts[:5]  # Limit to top 5
+                        ])
+                        
+                        ontology_context += f"""
+                        {domain.capitalize()} Domain Concepts:
+                        {concepts_text}
+                        """
+        
+        # Search for domain-specific literature if domain knowledge manager is available
+        literature_context = ""
+        try:
+            # Make sure domain knowledge manager is initialized
+            await self.domain_knowledge.initialize(domains)
+            
+            # Generate search query based on hypothesis
+            query = f"{hypothesis.title} {' '.join(self._extract_key_terms(hypothesis, research_goal))}"
+            
+            # Search literature
+            results = await self.domain_knowledge.search(query, domains=domains, limit=3)
+            
+            # Format results for the prompt
+            for domain, domain_results in results.items():
+                if domain_results:
+                    results_text = "\n\n".join([
+                        f"Title: {result['title']}\n"
+                        f"Authors: {', '.join(result['authors']) if 'authors' in result and result['authors'] else 'Unknown'}\n"
+                        f"Summary: {result.get('abstract', result.get('snippet', ''))[:300]}..."
+                        for result in domain_results[:3]  # Limit to top 3
+                    ])
+                    
+                    literature_context += f"""
+                    {domain.capitalize()} Literature:
+                    {results_text}
+                    """
+                    
+                    # Create citations for the results
+                    for result in domain_results:
+                        citation = Citation(
+                            title=result["title"],
+                            authors=result.get("authors", []),
+                            year=result.get("year", ""),
+                            journal=result.get("journal", ""),
+                            url=result.get("url", ""),
+                            snippet=result.get("abstract", result.get("snippet", ""))[:200],
+                            source=result.get("source", "unknown")
+                        )
+                        citations.append(citation)
+        except Exception as e:
+            logger.warning(f"Error searching domain literature: {e}")
+        
+        # Combine domain contexts
+        if ontology_context or literature_context:
+            domain_context = f"""
+            Domain-Specific Knowledge:
+            {ontology_context}
+            {literature_context}
+            
+            IMPORTANT: Integrate this domain knowledge into the hypothesis to make it more scientifically grounded.
+            Use concepts, terminology, and findings from the literature to strengthen the hypothesis.
+            """
+        
+        # Prepare review context if provided
+        review_context = ""
+        if reviews:
+            review_text = "\n\n".join([
+                f"Review {i+1}:\n{review.text}"
+                for i, review in enumerate(reviews)
+            ])
+            
+            review_context = f"""
+            Previous Reviews:
+            {review_text}
+            """
+        
+        # Build the prompt
+        prompt = f"""
+        You are improving a scientific hypothesis by integrating domain-specific knowledge and addressing previous reviews.
+        
+        Research Goal:
+        {research_goal.text}
+        
+        Original Hypothesis:
+        Title: {hypothesis.title}
+        Summary: {hypothesis.summary}
+        Description: {hypothesis.description}
+        Supporting Evidence: {', '.join(hypothesis.supporting_evidence)}
+        
+        {review_context}
+        
+        {domain_context}
+        
+        Your task is to create an improved version of this hypothesis that:
+        1. Incorporates relevant domain-specific concepts, terminology, and findings
+        2. Addresses any weaknesses identified in the reviews
+        3. Is more scientifically precise and grounded in the literature
+        4. Makes testable predictions based on established domain knowledge
+        5. Connects to existing scientific understanding in the field
+        6. Uses appropriate scientific terminology from the domain
+        
+        Format your response as a JSON object with the following structure:
+        
+        ```json
+        {{
+            "title": "New scientifically precise title for the hypothesis",
+            "summary": "Brief summary grounded in domain knowledge (1-2 sentences)",
+            "description": "Detailed description with domain-specific concepts (1-2 paragraphs)",
+            "supporting_evidence": ["Evidence 1", "Evidence 2", ...],
+            "domain_concepts_used": ["Concept 1", "Concept 2", ...],
+            "scientific_improvements": ["Improvement 1", "Improvement 2", ...],
+            "testable_predictions": ["Prediction 1", "Prediction 2", ...]
+        }}
+        ```
+        """
+        
+        # Generate improved hypothesis
+        response = await self.generate(prompt)
+        
+        # Extract the JSON from the response
+        try:
+            # Find JSON content between backticks or at the start/end of the response
+            json_content = response
+            if "```json" in response:
+                json_content = response.split("```json")[1].split("```")[0].strip()
+            elif "```" in response:
+                json_content = response.split("```")[1].split("```")[0].strip()
+                
+            # Parse the JSON
+            data = json.loads(json_content)
+            
+            # Create the improved hypothesis
+            improved = Hypothesis(
+                title=data["title"],
+                description=data["description"],
+                summary=data["summary"],
+                supporting_evidence=data["supporting_evidence"],
+                creator="evolution_domain",
+                source=HypothesisSource.EVOLVED,
+                parent_hypotheses=[hypothesis.id],
+                citations=[c.id for c in citations],  # Add citations from domain literature
+                literature_grounded=True,
+                tags={"domain_enhanced"},
+                metadata={
+                    "research_goal_id": research_goal.id,
+                    "domains": domains,
+                    "domain_concepts_used": data.get("domain_concepts_used", []),
+                    "scientific_improvements": data.get("scientific_improvements", []),
+                    "testable_predictions": data.get("testable_predictions", []),
+                    "evolution_strategy": "domain_knowledge"
+                }
+            )
+            
+            logger.info(f"Created domain-enhanced hypothesis: {improved.title}")
+            return improved
+            
+        except Exception as e:
+            logger.error(f"Error parsing domain-enhanced hypothesis from response: {e}")
+            logger.debug(f"Response: {response}")
+            
+            # Fallback to standard improvement
+            return await self.improve_hypothesis(hypothesis, research_goal, reviews)
+    
+    async def apply_cross_domain_inspiration(self,
+                                       hypothesis: Hypothesis,
+                                       research_goal: ResearchGoal,
+                                       reviews: List[Review] = None) -> Hypothesis:
+        """
+        Improve a hypothesis by applying concepts and principles from other scientific domains.
+        
+        Args:
+            hypothesis (Hypothesis): The hypothesis to improve
+            research_goal (ResearchGoal): The research goal
+            reviews (List[Review], optional): Reviews of the hypothesis. Defaults to None.
+            
+        Returns:
+            Hypothesis: The improved hypothesis with cross-domain inspiration
+        """
+        logger.info(f"Applying cross-domain inspiration to hypothesis {hypothesis.id}")
+        
+        # Detect primary domain
+        primary_domains = await self._detect_domains(research_goal, hypothesis)
+        primary_domain = primary_domains[0] if primary_domains else "general"
+        
+        # Define cross-domain areas that could provide inspiration
+        cross_domains = {
+            "biomedicine": ["physics", "computer_science", "ecology", "mathematics"],
+            "physics": ["biology", "computer_science", "economics", "mathematics"],
+            "chemistry": ["physics", "biology", "materials_science", "computer_science"],
+            "computer_science": ["neuroscience", "economics", "linguistics", "physics"],
+            "ecology": ["network_theory", "economics", "physics", "social_science"],
+            "general": ["physics", "biology", "computer_science", "mathematics", "economics"]
+        }
+        
+        # Select domains for cross-pollination
+        inspiration_domains = cross_domains.get(primary_domain, cross_domains["general"])
+        
+        # Prepare review context if provided
+        review_context = ""
+        if reviews:
+            review_text = "\n\n".join([
+                f"Review {i+1}:\n{review.text}"
+                for i, review in enumerate(reviews)
+            ])
+            
+            review_context = f"""
+            Previous Reviews:
+            {review_text}
+            """
+        
+        # Build the prompt
+        prompt = f"""
+        You are applying cross-domain inspiration to improve a scientific hypothesis by drawing on concepts, principles, and methodologies from other scientific fields.
+        
+        Research Goal:
+        {research_goal.text}
+        
+        Original Hypothesis:
+        Title: {hypothesis.title}
+        Summary: {hypothesis.summary}
+        Description: {hypothesis.description}
+        Supporting Evidence: {', '.join(hypothesis.supporting_evidence)}
+        
+        Primary Domain: {primary_domain}
+        
+        {review_context}
+        
+        Inspiration Domains:
+        {", ".join(inspiration_domains)}
+        
+        Your task is to create an improved version of this hypothesis that:
+        1. Applies concepts, analogies, models, or principles from one or more of the inspiration domains
+        2. Creates novel connections between the primary domain and other scientific fields
+        3. Uses cross-domain thinking to address limitations identified in the reviews
+        4. Maintains scientific rigor while introducing innovative perspectives
+        5. Provides a fresh viewpoint that could lead to breakthrough insights
+        
+        Format your response as a JSON object with the following structure:
+        
+        ```json
+        {{
+            "title": "Cross-domain inspired title for the hypothesis",
+            "summary": "Brief summary with cross-domain concepts (1-2 sentences)",
+            "description": "Detailed description applying cross-domain thinking (1-2 paragraphs)",
+            "supporting_evidence": ["Evidence 1", "Evidence 2", ...],
+            "inspiration_domains_used": ["Domain 1", "Domain 2", ...],
+            "cross_domain_concepts": ["Concept 1 from Domain X", "Concept 2 from Domain Y", ...],
+            "novel_connections": ["Connection 1", "Connection 2", ...],
+            "potential_breakthroughs": ["Potential breakthrough 1", "Potential breakthrough 2", ...]
+        }}
+        ```
+        """
+        
+        # Generate improved hypothesis
+        response = await self.generate(prompt)
+        
+        # Extract the JSON from the response
+        try:
+            # Find JSON content between backticks or at the start/end of the response
+            json_content = response
+            if "```json" in response:
+                json_content = response.split("```json")[1].split("```")[0].strip()
+            elif "```" in response:
+                json_content = response.split("```")[1].split("```")[0].strip()
+                
+            # Parse the JSON
+            data = json.loads(json_content)
+            
+            # Create the improved hypothesis
+            improved = Hypothesis(
+                title=data["title"],
+                description=data["description"],
+                summary=data["summary"],
+                supporting_evidence=data["supporting_evidence"],
+                creator="evolution_cross_domain",
+                source=HypothesisSource.EVOLVED,
+                parent_hypotheses=[hypothesis.id],
+                tags={"cross_domain", "innovative"},
+                metadata={
+                    "research_goal_id": research_goal.id,
+                    "primary_domain": primary_domain,
+                    "inspiration_domains": data.get("inspiration_domains_used", inspiration_domains),
+                    "cross_domain_concepts": data.get("cross_domain_concepts", []),
+                    "novel_connections": data.get("novel_connections", []),
+                    "potential_breakthroughs": data.get("potential_breakthroughs", []),
+                    "evolution_strategy": "cross_domain"
+                }
+            )
+            
+            logger.info(f"Created cross-domain inspired hypothesis: {improved.title}")
+            return improved
+            
+        except Exception as e:
+            logger.error(f"Error parsing cross-domain hypothesis from response: {e}")
+            logger.debug(f"Response: {response}")
+            
+            # Fallback to standard improvement
+            return await self.improve_hypothesis(hypothesis, research_goal, reviews)
+    
+    async def _detect_domains(self, research_goal: ResearchGoal, hypothesis: Optional[Hypothesis] = None) -> List[str]:
+        """
+        Detect relevant scientific domains based on research goal and hypothesis.
+        
+        Args:
+            research_goal (ResearchGoal): The research goal
+            hypothesis (Optional[Hypothesis], optional): The hypothesis. Defaults to None.
+            
+        Returns:
+            List[str]: List of detected domains
+        """
+        # Define known domains and their keywords
+        domain_keywords = {
+            "biomedicine": ["disease", "drug", "treatment", "medicine", "patient", "clinical", "gene", "protein", 
+                           "biology", "cell", "molecular", "cancer", "therapy", "biomarker", "mutation", "tissue", 
+                           "receptor", "signaling", "pathology", "virus", "immune", "brain", "neuron"],
+            "chemistry": ["chemical", "molecule", "compound", "reaction", "synthesis", "polymer", "catalyst", 
+                         "solvent", "acid", "base", "organic", "inorganic", "spectroscopy", "bond", "element", 
+                         "structure", "material", "crystal", "solution", "ion", "electrochemical"],
+            "physics": ["quantum", "particle", "energy", "force", "field", "relativity", "gravity", "mechanics", 
+                       "thermodynamics", "electromagnetism", "nuclear", "optics", "motion", "wave", "radiation", 
+                       "quantum", "material", "state", "velocity", "acceleration", "mass", "light"],
+            "computer_science": ["algorithm", "data", "software", "programming", "network", "learning", "ai", 
+                                "artificial intelligence", "computation", "system", "neural", "machine", "database",
+                                "optimization", "computational", "security", "information", "robot", "automation"],
+            "ecology": ["ecosystem", "species", "environment", "climate", "conservation", "biodiversity", "habitat", 
+                       "population", "evolution", "organism", "sustainability", "pollution", "resource", "forest", 
+                       "ocean", "wildlife", "carbon", "nitrogen", "food web", "adaptation", "vegetation"]
+        }
+        
+        # Combine text from research goal and hypothesis
+        combined_text = research_goal.text.lower()
+        if hypothesis:
+            combined_text += " " + hypothesis.title.lower()
+            combined_text += " " + hypothesis.description.lower()
+            combined_text += " " + hypothesis.summary.lower()
+            combined_text += " " + " ".join(hypothesis.supporting_evidence).lower()
+        
+        # Count domain keywords in the text
+        domain_counts = {}
+        for domain, keywords in domain_keywords.items():
+            count = sum(1 for keyword in keywords if keyword.lower() in combined_text)
+            domain_counts[domain] = count
+        
+        # Sort domains by count
+        sorted_domains = sorted(domain_counts.items(), key=lambda x: x[1], reverse=True)
+        
+        # Return top domains (those with at least one keyword match)
+        return [domain for domain, count in sorted_domains if count > 0]
+    
+    def _extract_key_terms(self, hypothesis: Hypothesis, research_goal: ResearchGoal) -> List[str]:
+        """
+        Extract key scientific terms from a hypothesis and research goal.
+        
+        Args:
+            hypothesis (Hypothesis): The hypothesis
+            research_goal (ResearchGoal): The research goal
+            
+        Returns:
+            List[str]: List of key terms
+        """
+        # Combine text from hypothesis and research goal
+        combined_text = (
+            hypothesis.title + " " + 
+            hypothesis.summary + " " + 
+            research_goal.text
+        )
+        
+        # Extract all words
+        words = combined_text.replace(",", " ").replace(".", " ").replace(";", " ").split()
+        
+        # Keep only likely scientific terms (longer words, not common stopwords)
+        stopwords = {"the", "a", "an", "in", "on", "at", "by", "for", "with", "about",
+                    "to", "from", "of", "and", "or", "but", "is", "are", "was", "were",
+                    "be", "been", "being", "have", "has", "had", "do", "does", "did",
+                    "will", "would", "should", "could", "may", "might", "must", "can",
+                    "this", "that", "these", "those", "their", "there", "it", "its"}
+        
+        terms = [word for word in words if len(word) > 4 and word.lower() not in stopwords]
+        
+        # Prioritize multi-word scientific terms by checking for combinations
+        multi_word_terms = []
+        for i in range(len(words) - 1):
+            if len(words[i]) > 3 and len(words[i+1]) > 3:  # Both words reasonably long
+                if words[i].lower() not in stopwords and words[i+1].lower() not in stopwords:
+                    multi_word_terms.append(f"{words[i]} {words[i+1]}")
+        
+        # Return unique terms
+        all_terms = list(set(terms + multi_word_terms))
+        
+        # Sort by length (longer terms often more specific)
+        all_terms.sort(key=len, reverse=True)
+        
+        return all_terms[:10]  # Return top 10 terms
     
     async def combine_hypotheses(self, 
                             hypotheses: List[Hypothesis], 

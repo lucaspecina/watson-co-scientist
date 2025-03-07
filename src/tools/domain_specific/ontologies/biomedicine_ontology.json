@@ -1,0 +1,191 @@
+{
+  "metadata": {
+    "name": "Biomedicine Ontology",
+    "description": "Basic ontology for biomedical concepts",
+    "version": "0.1.0",
+    "domain": "biomedicine",
+    "created": "2025-03-07"
+  },
+  "concepts": {
+    "disease": {
+      "name": "Disease",
+      "description": "A disorder of structure or function in a human, animal, or plant that produces specific symptoms or affects a specific location.",
+      "synonyms": ["illness", "sickness", "condition", "disorder", "malady", "ailment"],
+      "relationships": {}
+    },
+    "neurodegenerative_disease": {
+      "name": "Neurodegenerative Disease",
+      "description": "Diseases characterized by progressive degeneration of the structure and function of the central nervous system or peripheral nervous system.",
+      "synonyms": ["neurodegeneration", "neurodegenerative disorder"],
+      "relationships": {
+        "is_a": "disease"
+      }
+    },
+    "als": {
+      "name": "Amyotrophic Lateral Sclerosis",
+      "description": "A progressive neurodegenerative disease that affects nerve cells in the brain and spinal cord.",
+      "synonyms": ["ALS", "Lou Gehrig's disease", "motor neuron disease"],
+      "relationships": {
+        "is_a": "neurodegenerative_disease",
+        "associated_with": ["motor_neuron", "protein_misfolding", "oxidative_stress"]
+      }
+    },
+    "alzheimers": {
+      "name": "Alzheimer's Disease",
+      "description": "A progressive neurodegenerative disease that leads to brain cell death and is the most common cause of dementia.",
+      "synonyms": ["AD", "Alzheimer disease", "senile dementia"],
+      "relationships": {
+        "is_a": "neurodegenerative_disease",
+        "associated_with": ["amyloid_beta", "tau_protein", "brain_atrophy"]
+      }
+    },
+    "parkinsons": {
+      "name": "Parkinson's Disease",
+      "description": "A progressive nervous system disorder that affects movement and often includes tremors.",
+      "synonyms": ["PD", "Parkinson disease", "paralysis agitans"],
+      "relationships": {
+        "is_a": "neurodegenerative_disease",
+        "associated_with": ["dopamine", "substantia_nigra", "lewy_body"]
+      }
+    },
+    "protein": {
+      "name": "Protein",
+      "description": "Macromolecules consisting of chains of amino acids that perform a vast array of functions within organisms.",
+      "synonyms": ["polypeptide", "gene product"],
+      "relationships": {}
+    },
+    "tau_protein": {
+      "name": "Tau Protein",
+      "description": "A protein that stabilizes microtubules in neurons, and which can form neurofibrillary tangles in Alzheimer's disease.",
+      "synonyms": ["tau", "microtubule-associated protein tau", "MAPT"],
+      "relationships": {
+        "is_a": "protein",
+        "associated_with": ["alzheimers", "microtubule", "neurofibrillary_tangle"]
+      }
+    },
+    "amyloid_beta": {
+      "name": "Amyloid Beta",
+      "description": "A peptide that is the main component of amyloid plaques found in the brains of Alzheimer's patients.",
+      "synonyms": ["Aβ", "beta-amyloid", "A-beta"],
+      "relationships": {
+        "is_a": "protein",
+        "associated_with": ["alzheimers", "amyloid_plaque", "neuroinflammation"]
+      }
+    },
+    "oxidative_stress": {
+      "name": "Oxidative Stress",
+      "description": "An imbalance between the production of free radicals and the ability of the body to counteract their harmful effects through neutralization by antioxidants.",
+      "synonyms": ["free radical damage", "oxidative damage", "redox imbalance"],
+      "relationships": {
+        "associated_with": ["als", "alzheimers", "parkinsons", "inflammation", "mitochondrial_dysfunction"]
+      }
+    },
+    "mitochondrial_dysfunction": {
+      "name": "Mitochondrial Dysfunction",
+      "description": "Abnormalities in the function of mitochondria, which are responsible for producing energy for cells.",
+      "synonyms": ["mitochondrial disorder", "mitochondrial damage"],
+      "relationships": {
+        "associated_with": ["oxidative_stress", "apoptosis", "neurodegenerative_disease"]
+      }
+    },
+    "neuroinflammation": {
+      "name": "Neuroinflammation",
+      "description": "Inflammation of nervous tissue, which can be triggered by various stimuli including infection, trauma, and toxins.",
+      "synonyms": ["central nervous system inflammation", "brain inflammation"],
+      "relationships": {
+        "associated_with": ["neurodegenerative_disease", "microglia", "astrocyte", "cytokine"]
+      }
+    },
+    "gene": {
+      "name": "Gene",
+      "description": "A sequence of nucleotides in DNA or RNA that codes for a molecule that has a function.",
+      "synonyms": ["genetic locus", "allele", "genetic determinant"],
+      "relationships": {}
+    },
+    "sod1": {
+      "name": "SOD1",
+      "description": "A gene that provides instructions for making the enzyme superoxide dismutase, which breaks down superoxide radicals. Mutations in SOD1 are a cause of familial ALS.",
+      "synonyms": ["superoxide dismutase 1", "Cu/Zn superoxide dismutase"],
+      "relationships": {
+        "is_a": "gene",
+        "associated_with": ["als", "oxidative_stress", "protein_misfolding"]
+      }
+    },
+    "c9orf72": {
+      "name": "C9orf72",
+      "description": "A gene that, when mutated with a hexanucleotide repeat expansion, is a major cause of both ALS and frontotemporal dementia.",
+      "synonyms": ["chromosome 9 open reading frame 72", "C9-ALS"],
+      "relationships": {
+        "is_a": "gene",
+        "associated_with": ["als", "frontotemporal_dementia", "rna_processing"]
+      }
+    },
+    "treatment": {
+      "name": "Treatment",
+      "description": "Medical care given to a patient for an illness or injury.",
+      "synonyms": ["therapy", "intervention", "remedy", "management"],
+      "relationships": {}
+    },
+    "drug": {
+      "name": "Drug",
+      "description": "A substance used to prevent or cure a disease or to alleviate symptoms.",
+      "synonyms": ["medication", "pharmaceutical", "medicine", "therapeutic agent"],
+      "relationships": {
+        "is_a": "treatment"
+      }
+    },
+    "riluzole": {
+      "name": "Riluzole",
+      "description": "A drug used to treat ALS, believed to work by reducing glutamate toxicity.",
+      "synonyms": ["Rilutek", "Teglutik"],
+      "relationships": {
+        "is_a": "drug",
+        "treats": "als",
+        "mechanism": ["glutamate_modulation", "neuroprotection"]
+      }
+    },
+    "edaravone": {
+      "name": "Edaravone",
+      "description": "A drug used to treat ALS, acting as a free radical scavenger to prevent oxidative stress.",
+      "synonyms": ["Radicava", "MCI-186"],
+      "relationships": {
+        "is_a": "drug",
+        "treats": "als",
+        "mechanism": ["antioxidant", "free_radical_scavenger"]
+      }
+    },
+    "cellular_process": {
+      "name": "Cellular Process",
+      "description": "A process that is carried out at the cellular level, but not necessarily restricted to a single cell.",
+      "synonyms": ["cell process", "biological process"],
+      "relationships": {}
+    },
+    "apoptosis": {
+      "name": "Apoptosis",
+      "description": "A form of programmed cell death that occurs in multicellular organisms.",
+      "synonyms": ["programmed cell death", "cell suicide"],
+      "relationships": {
+        "is_a": "cellular_process",
+        "associated_with": ["neurodegenerative_disease", "mitochondrial_dysfunction", "caspase"]
+      }
+    },
+    "autophagy": {
+      "name": "Autophagy",
+      "description": "A cellular process that involves the degradation and recycling of cellular components.",
+      "synonyms": ["self-eating", "cellular recycling", "autophagocytosis"],
+      "relationships": {
+        "is_a": "cellular_process",
+        "associated_with": ["neurodegenerative_disease", "protein_aggregation", "lysosome"]
+      }
+    },
+    "protein_misfolding": {
+      "name": "Protein Misfolding",
+      "description": "A process where proteins fold into an incorrect three-dimensional structure, which can lead to aggregation and disease.",
+      "synonyms": ["misfolded protein", "abnormal protein folding"],
+      "relationships": {
+        "is_a": "cellular_process",
+        "associated_with": ["neurodegenerative_disease", "protein_aggregation", "proteostasis"]
+      }
+    }
+  }
+}

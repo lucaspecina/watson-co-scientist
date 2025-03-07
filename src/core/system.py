@@ -705,8 +705,9 @@ class CoScientistSystem:
                 # Get reviews for this hypothesis
                 reviews = self.db.get_reviews_for_hypothesis(hypothesis.id)
                 
-                # Improve the hypothesis
-                improved = await self.evolution.improve_hypothesis(
+                # Use enhanced evolution strategy that automatically selects the appropriate
+                # improvement strategy based on the hypothesis and reviews
+                improved = await self.evolution.evolve_hypothesis(
                     hypothesis,
                     self.current_research_goal,
                     reviews
