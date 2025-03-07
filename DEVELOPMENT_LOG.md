@@ -38,24 +38,50 @@ As of March 7, 2025, we have completed the first iteration of the system with th
    - Basic system controller with iteration mechanism
    - Configuration management with environment variable support
    - Logging infrastructure
+   - Async workflow handling for non-blocking operations
 
 2. **Agent Implementation**:
    - All 7 specialized agents with basic functionality
-   - LLM provider interfaces for different model providers
+   - LLM provider interfaces for different model providers (Azure OpenAI, OpenAI, Ollama)
    - Agent coordination through the Supervisor agent
+   - Agent weights for dynamic resource allocation
 
 3. **Data Models**:
    - Models for research goals, hypotheses, reviews, etc.
-   - Database for storing and retrieving data
+   - JSON-based database for storing and retrieving data
+   - Support for Elo-based tournament ranking
 
 4. **User Interfaces**:
-   - Command-line interface for interactive usage
-   - API server with endpoints for system control
+   - Command-line interface for interactive usage with multiple commands
+   - API server with RESTful endpoints for system control
+   - Swagger UI documentation for API exploration
 
 5. **Security Features**:
    - Environment variable handling for API keys
    - Configuration template without sensitive information
    - Proper gitignore rules to prevent accidental key leaks
+
+## Recent Updates (March 7, 2025)
+
+1. **System Initialization Fixes**:
+   - Fixed imports in main.py to correctly import from src module
+   - Updated environment variable handling to use Azure OpenAI standard naming conventions
+   - Properly handled async functions with asyncio
+
+2. **Configuration Improvements**:
+   - Fixed environment variable override in configuration loading
+   - Updated template.json to reflect correct field names
+   - Fixed issue in OllamaProvider initialization
+
+3. **Documentation Enhancements**:
+   - Updated README with comprehensive usage instructions
+   - Added detailed examples for both CLI and API interaction
+   - Improved environment variable documentation
+
+4. **Testing**:
+   - Verified system initialization with API keys
+   - Tested API server functionality
+   - Ensured proper error handling when keys are missing
 
 ## Short-Term Plan (Next 3 Iterations)
 
@@ -114,6 +140,6 @@ As of March 7, 2025, we have completed the first iteration of the system with th
 1. Further testing of the core system with real research goals
 2. Implementing more advanced generation techniques
 3. Enhancing the evolution agent capabilities
-4. Improving the web search integration
+4. Improving the web search integration (use TAVILY as searcher)
 
 This plan will be updated as development progresses and new insights are gained. The ultimate goal is to create a system that truly assists scientists in accelerating the research process while maintaining scientific rigor and creativity.

@@ -221,6 +221,7 @@ class OllamaProvider(LLMProvider):
         try:
             # Convert the messages format to what Ollama expects
             formatted_messages = []
+            system_msg = None
             for msg in messages:
                 role = msg["role"]
                 if role == "system":

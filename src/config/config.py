@@ -54,9 +54,9 @@ def load_default_config() -> Dict[str, Any]:
                 "provider": "azure",
                 "model_name": "gpt-4",
                 "api_key": os.environ.get("AZURE_OPENAI_API_KEY"),
-                "api_base": os.environ.get("AZURE_OPENAI_API_BASE"),
+                "api_base": os.environ.get("AZURE_OPENAI_ENDPOINT"),
                 "api_version": os.environ.get("AZURE_OPENAI_API_VERSION", "2023-05-15"),
-                "deployment_id": os.environ.get("AZURE_OPENAI_DEPLOYMENT_ID"),
+                "deployment_id": os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME"),
                 "temperature": 0.7,
                 "max_tokens": 4000
             },
@@ -132,6 +132,14 @@ def load_config(config_name: str = "default") -> SystemConfig:
     if os.path.exists(config_file):
         with open(config_file, "r") as f:
             config_data = json.load(f)
+        
+        # Important: Override with environment variables
+        if "models" in config_data and "azure-gpt4" in config_data["models"]:
+            azure_config = config_data["models"]["azure-gpt4"]
+            azure_config["api_key"] = os.environ.get("AZURE_OPENAI_API_KEY")
+            azure_config["api_base"] = os.environ.get("AZURE_OPENAI_ENDPOINT")
+            azure_config["api_version"] = os.environ.get("AZURE_OPENAI_API_VERSION", "2023-05-15")
+            azure_config["deployment_id"] = os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME")
     else:
         # Use default config
         config_data = load_default_config()

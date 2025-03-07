@@ -13,14 +13,14 @@ from dotenv import load_dotenv
 sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
 
 # Import our modules
-from core.system import CoScientistSystem
-from utils.logger import setup_logger
+from src.core.system import CoScientistSystem
+from src.utils.logger import setup_logger
 
 # Load environment variables
 load_dotenv()
 
-def main():
-    """Main entry point for the Co-Scientist system."""
+async def main_async():
+    """Async main entry point for the Co-Scientist system."""
     # Set up logging
     logger = setup_logger()
     logger.info("Starting Watson Co-Scientist system")
@@ -37,16 +37,23 @@ def main():
         
         # If a research goal was provided, analyze it
         if args.research_goal:
-            system.analyze_research_goal(args.research_goal)
+            await system.analyze_research_goal(args.research_goal)
         else:
             # Otherwise start interactive mode
-            system.start_interactive_mode()
+            await system.start_interactive_mode()
             
     except Exception as e:
         logger.error(f"Error running Co-Scientist system: {e}", exc_info=True)
         return 1
         
     return 0
+
+def main():
+    """Main entry point for the Co-Scientist system."""
+    import asyncio
+    
+    # Run the async main function
+    return asyncio.run(main_async())
 
 if __name__ == "__main__":
     sys.exit(main())

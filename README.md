@@ -55,9 +55,9 @@ Create a `.env` file in the root directory with the following variables:
 ```
 # Azure OpenAI (default provider)
 AZURE_OPENAI_API_KEY=your_azure_openai_api_key
-AZURE_OPENAI_API_BASE=https://your-resource-name.openai.azure.com
+AZURE_OPENAI_ENDPOINT=https://your-resource-name.openai.azure.com
 AZURE_OPENAI_API_VERSION=2023-05-15
-AZURE_OPENAI_DEPLOYMENT_ID=your_deployment_id
+AZURE_OPENAI_DEPLOYMENT_NAME=your_deployment_name
 
 # OpenAI (fallback)
 OPENAI_API_KEY=your_openai_api_key
@@ -65,6 +65,8 @@ OPENAI_API_KEY=your_openai_api_key
 # Web Search (optional)
 BING_SEARCH_API_KEY=your_bing_search_api_key
 ```
+
+Note: The environment variable names have been updated to match Azure OpenAI's standard naming conventions.
 
 ### Configuration
 
@@ -77,7 +79,9 @@ The system will automatically load configuration from environment variables, so 
 
 ## Usage
 
-### Command Line Interface
+### Command Line Interface (CLI)
+
+The CLI provides an interactive interface to work with the system directly:
 
 ```bash
 # Start the interactive CLI
@@ -85,24 +89,137 @@ python main.py
 
 # Analyze a specific research goal
 python main.py --research_goal "Investigate the molecular mechanisms of protein misfolding in neurodegenerative diseases."
+
+# Use a specific configuration
+python main.py --config custom_config
+```
+
+#### Interactive Mode Commands
+
+When running in interactive mode, you can use the following commands:
+
+- `goal: <text>` - Set a new research goal
+- `run` - Run 1 iteration
+- `run <N>` - Run N iterations
+- `state` - Print the current system state
+- `overview` - Generate and print a research overview
+- `help` - Show help information
+- `exit` or `quit` - Exit the program
+
+Example session:
+```
+> goal: Investigate the role of mitochondrial dysfunction in neurodegenerative diseases
+Analyzing research goal: Investigating the role of mitochondrial dysfunction in neurodegenerative...
+Research goal set. Type 'run' to start processing, or 'run N' to run N iterations.
+
+> run 2
+Running 2 iteration(s)...
+Completed iteration 1/2
+Completed iteration 2/2
+
+> state
+============ CURRENT STATE ============
+Research Goal: Investigate the role of mitochondrial dysfunction in neurodegenerative diseases...
+Iterations completed: 2
+Hypotheses generated: 6
+Reviews completed: 4
+Tournament matches: 3
+
+Top Hypotheses:
+  1. Mitochondrial Complex I Dysfunction in Parkinson's Disease (Rating: 1215.0)
+  2. Mitochondrial DNA Mutations in Alzheimer's Disease (Rating: 1208.4)
+  ...
+
+> overview
+Generating research overview...
+============ RESEARCH OVERVIEW ============
+Title: Mitochondrial Dysfunction in Neurodegenerative Diseases: Research Areas and Hypotheses
+Summary: This overview synthesizes current research directions on the role of mitochondrial...
+...
 ```
 
 ### API Server
 
+The API server enables:
+- Integration with other applications and workflows
+- Remote access and control of the Co-Scientist system
+- Parallel processing of multiple research goals
+- Long-running background tasks without blocking the UI
+
+#### Starting the API Server
+
 ```bash
-# Start the API server
+# Start the API server with default settings (localhost:8000)
 python api_server.py
 
-# Access the API documentation at http://localhost:8000/docs
+# Specify host and port
+python api_server.py --host 0.0.0.0 --port 8888
 ```
 
-### API Endpoints
+#### API Documentation
 
-- `POST /research_goal`: Submit a research goal
-- `GET /state`: Get the current system state
-- `POST /run`: Run system iterations
-- `GET /hypotheses`: Get generated hypotheses
-- `GET /overview`: Get the latest research overview
+Once running, you can:
+- Access the API documentation: `http://localhost:8000/docs`
+- Browse the interactive Swagger UI to test endpoints
+
+#### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/research_goal` | POST | Submit a new research goal |
+| `/state` | GET | Get the current system state |
+| `/run` | POST | Run system iterations in the background |
+| `/hypotheses` | GET | Get generated hypotheses (with pagination) |
+| `/overview` | GET | Get the latest research overview |
+
+#### Example API Usage
+
+Using curl:
+```bash
+# Submit a research goal
+curl -X POST "http://localhost:8000/research_goal" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Investigate the role of mitochondrial dysfunction in neurodegenerative diseases"}'
+
+# Run iterations
+curl -X POST "http://localhost:8000/run" \
+  -H "Content-Type: application/json" \
+  -d '{"iterations": 3}'
+
+# Get the current state
+curl -X GET "http://localhost:8000/state"
+
+# Get the top hypotheses (with pagination)
+curl -X GET "http://localhost:8000/hypotheses?limit=5&offset=0"
+
+# Get the latest research overview
+curl -X GET "http://localhost:8000/overview"
+```
+
+Using Python requests:
+```python
+import requests
+import json
+
+# Submit a research goal
+response = requests.post(
+    "http://localhost:8000/research_goal",
+    json={"text": "Investigate the role of mitochondrial dysfunction in neurodegenerative diseases"}
+)
+research_goal = response.json()
+print(f"Research goal ID: {research_goal['id']}")
+
+# Run iterations
+requests.post(
+    "http://localhost:8000/run",
+    json={"iterations": 3}
+)
+
+# Get the latest state
+state = requests.get("http://localhost:8000/state").json()
+print(f"Iterations completed: {state['iterations_completed']}")
+print(f"Hypotheses generated: {state['num_hypotheses']}")
+```
 
 ## Development
 
