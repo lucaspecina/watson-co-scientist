@@ -9,8 +9,10 @@ The co-scientist is designed to act as a helpful assistant and collaborator to s
 Given a research goal specified in natural language, the system can:
 - Generate novel, original research hypotheses
 - Propose experimental protocols for downstream validations
+- Provide rigorous verification of hypotheses through causal reasoning and computational simulation
+- Identify specific, testable predictions and potential failure modes
 - Provide grounding for recommendations by citing relevant literature
-- Explain the reasoning behind proposals
+- Explain the reasoning behind proposals with probabilistic assessment
 
 ## System Architecture
 
@@ -18,19 +20,27 @@ The system employs a multi-agent architecture integrated within an asynchronous 
 
 1. **Supervisor Agent**: Coordinates the work of specialized agents and manages system resources
 2. **Generation Agent**: Generates novel research hypotheses and research proposals
-3. **Reflection Agent**: Reviews and evaluates hypotheses for correctness, quality, novelty, and ethics
+3. **Reflection Agent**: Performs multiple types of reviews, including:
+   - Standard reviews for correctness, quality, novelty, and ethics
+   - Deep verification reviews with causal reasoning and probabilistic assessment
+   - Simulation reviews with computational modeling and prediction testing
+   - Observation reviews linking hypotheses to existing experimental evidence
+   - Protocol reviews assessing the feasibility and rigor of experimental designs
 4. **Ranking Agent**: Conducts tournaments to rank hypotheses via scientific debates
 5. **Proximity Agent**: Calculates similarity between hypotheses to organize the hypothesis space
 6. **Evolution Agent**: Improves existing hypotheses through various strategies
-7. **Meta-Review Agent**: Synthesizes insights from reviews and tournaments into a comprehensive research overview
+7. **Meta-Review Agent**: Synthesizes insights from reviews and tournaments into a comprehensive research overview, including causal reasoning patterns and verification recommendations
 
 ## Features
 
 - **Scientist-in-the-loop**: The system is designed for collaboration with scientists, allowing them to guide the process
 - **Multi-agent architecture**: Specialized agents work together to generate, evaluate, and refine hypotheses
 - **Iterative improvement**: The system continuously refines hypotheses based on feedback and evaluation
+- **Deep verification capabilities**: Rigorous assessment of hypotheses through causal reasoning, assumption analysis, and probabilistic evaluation
+- **Computational simulation**: Modeling of hypotheses to test predictions, analyze sensitivity to parameters, and identify emergent properties
+- **Experimental protocol generation**: Development of detailed, practical protocols to test hypotheses in the lab
 - **Tournament-based ranking**: Hypotheses are evaluated and ranked through simulated scientific debates
-- **Research overview generation**: The system synthesizes findings into a comprehensive research overview
+- **Enhanced research overviews**: Comprehensive summaries with causal structures, verification approaches, and testable predictions
 - **Multiple model providers**: Support for Azure OpenAI, OpenAI, and Ollama as LLM providers
 
 ## Installation

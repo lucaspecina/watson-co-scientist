@@ -1,0 +1,27 @@
+{
+  "id": "98e90663-bc33-44d4-90e6-d5fbdd1feb89",
+  "title": "Differential Immune Response Induced by Microplastic Composition",
+  "description": "This hypothesis suggests that the chemical composition of microplastics (e.g., polyethylene vs. polystyrene) influences the immune response at the cellular level. Different polymers may interact with immune cells differently, potentially modulating cytokine production, phagocytosis rates, and antigen presentation. This could lead to varying degrees of inflammation and immune activation, with certain materials eliciting a stronger or more detrimental response over time, contributing to chronic health issues.",
+  "summary": "The chemical composition of microplastics alters immune responses, affecting inflammation and cellular health.",
+  "supporting_evidence": [
+    "Immune cells respond variably to different materials in the context of biomaterials and implants.",
+    "Inflammatory responses can be modulated by the surface chemistry of foreign particles."
+  ],
+  "citations": [],
+  "creator": "generation",
+  "status": "reviewed",
+  "source": "system",
+  "created_at": "2025-03-07T16:45:06.790902",
+  "parent_hypotheses": [],
+  "elo_rating": 1168.736306793522,
+  "matches_played": 2,
+  "novelty_score": 6.0,
+  "correctness_score": 8.0,
+  "testability_score": 8.0,
+  "tags": [],
+  "metadata": {
+    "research_goal_id": "1e04cd56-240e-48fa-8abc-93010ee6da3b"
+  },
+  "user_id": null,
+  "literature_grounded": false
+}

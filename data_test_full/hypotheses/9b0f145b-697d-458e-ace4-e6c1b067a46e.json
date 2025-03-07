@@ -1,0 +1,27 @@
+{
+  "id": "9b0f145b-697d-458e-ace4-e6c1b067a46e",
+  "title": "Microplastic Size-Dependent Modulation of Cellular Senescence in Human Macrophages",
+  "description": "This hypothesis posits that different sizes of microplastics (nano, micro, and larger particles) induce varying degrees of cellular senescence in human macrophages, impacting immune responses. Smaller microplastics may penetrate cells more easily, leading to oxidative stress and activation of senescence-associated secretory phenotypes (SASP), while larger particles may be more likely to trigger phagocytosis and inflammatory responses. By analyzing the cellular senescence markers in macrophages exposed to controlled concentrations of microplastics of varying sizes, we can elucidate the relationship between microplastic characteristics and immune dysfunction.",
+  "summary": "This hypothesis suggests that microplastic size influences the induction of cellular senescence in macrophages, altering immune responses.",
+  "supporting_evidence": [
+    "Previous studies have linked oxidative stress to cellular senescence.",
+    "Macrophages are key players in the immune response and their senescence can lead to chronic inflammation."
+  ],
+  "citations": [],
+  "creator": "generation",
+  "status": "reviewed",
+  "source": "system",
+  "created_at": "2025-03-07T16:45:06.922289",
+  "parent_hypotheses": [],
+  "elo_rating": 1231.2976013366472,
+  "matches_played": 2,
+  "novelty_score": 6.0,
+  "correctness_score": 8.0,
+  "testability_score": 9.0,
+  "tags": [],
+  "metadata": {
+    "research_goal_id": "1e04cd56-240e-48fa-8abc-93010ee6da3b"
+  },
+  "user_id": null,
+  "literature_grounded": false
+}

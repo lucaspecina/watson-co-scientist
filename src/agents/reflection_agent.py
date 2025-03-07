@@ -477,7 +477,8 @@ class ReflectionAgent(BaseAgent):
                                    hypothesis: Hypothesis, 
                                    research_goal: ResearchGoal) -> Review:
         """
-        Perform a deep verification review of a hypothesis by decomposing it into sub-assumptions.
+        Perform a deep verification review of a hypothesis by decomposing it into sub-assumptions
+        and systematically evaluating each component with causal reasoning.
         
         Args:
             hypothesis (Hypothesis): The hypothesis to review.
@@ -488,9 +489,35 @@ class ReflectionAgent(BaseAgent):
         """
         logger.info(f"Performing deep verification review of hypothesis {hypothesis.id}: {hypothesis.title}")
         
+        # Perform literature search for verification if available
+        literature_context = ""
+        if self.literature_search:
+            # Search for scientific evidence related to the key components of the hypothesis
+            query = f"{hypothesis.title} scientific evidence verification methodology {research_goal.text}"
+            search_result = await self.literature_search.search_with_citations(query, max_results=5)
+            
+            # Extract results and format them for the prompt
+            search_results = search_result.get("results", [])
+            
+            if search_results:
+                # Format the literature context
+                literature_sources = "\n\n".join([
+                    f"Source {i+1}: {result.get('title', 'Untitled')}\n"
+                    f"URL: {result.get('url', 'No URL')}\n"
+                    f"Summary: {result.get('snippet', 'No snippet available')}"
+                    for i, result in enumerate(search_results)
+                ])
+                
+                literature_context = f"""
+                ## Relevant Scientific Literature for Verification
+                Use these sources to inform your verification of the hypothesis components:
+                
+                {literature_sources}
+                """
+        
         # Build the prompt
         prompt = f"""
-        You are performing a deep verification review of a scientific hypothesis. This involves decomposing the hypothesis into its constituent assumptions and evaluating each one independently.
+        You are performing a deep verification review of a scientific hypothesis, acting as an expert scientific reviewer with expertise in systematic evaluation and causal reasoning. This involves decomposing the hypothesis into its constituent assumptions, evaluating each component rigorously, and assessing the causal relationships between them.
 
         Research Goal:
         {research_goal.text}
@@ -501,41 +528,85 @@ class ReflectionAgent(BaseAgent):
         Description: {hypothesis.description}
         Supporting Evidence: {', '.join(hypothesis.supporting_evidence)}
         
-        Follow these steps:
-        1. Identify the main claim or conclusion of the hypothesis.
-        2. Break down the hypothesis into 3-7 key assumptions or premises that support the main claim.
-        3. For each assumption, identify 2-4 sub-assumptions or facts that must be true for the assumption to hold.
-        4. Evaluate each sub-assumption independently, indicating whether it is:
-           - Well-established (strong scientific consensus)
-           - Plausible (some evidence but not conclusive)
-           - Speculative (limited or no evidence)
-           - Incorrect (contradicts established knowledge)
-        5. Determine whether any incorrect assumptions are fundamental to the hypothesis (would invalidate it if wrong).
-        6. Provide an overall assessment of the hypothesis based on this decomposition.
+        {literature_context}
+        
+        Follow these steps for a rigorous scientific verification:
+        
+        1. Identify the main claim or conclusion of the hypothesis with precision.
+        
+        2. Decompose the hypothesis systematically:
+           - Break down the hypothesis into 4-8 key assumptions or premises that support the main claim
+           - Include both explicit assumptions stated in the hypothesis and implicit assumptions necessary for it to hold
+           - Identify causal relationships between these assumptions (which ones are causes and which are effects)
+        
+        3. For each key assumption:
+           - Identify 2-5 sub-assumptions or factual claims that must be true for the assumption to hold
+           - Assess the logical coherence and connection between sub-assumptions
+           - Evaluate for potential logical fallacies or reasoning errors
+        
+        4. Systematically evaluate each sub-assumption based on:
+           - Scientific consensus: Is there strong agreement in the field?
+           - Empirical support: What direct evidence exists?
+           - Theoretical foundation: Is it consistent with established theories?
+           - Methodological soundness: Are studies supporting it well-designed?
+        
+        5. Classify each sub-assumption as:
+           - Well-established (strong scientific consensus and empirical support)
+           - Plausible (some evidence but not conclusive, theoretically sound)
+           - Speculative (limited evidence, theoretically possible)
+           - Controversial (conflicting evidence or theoretical views)
+           - Incorrect (contradicts well-established knowledge)
+        
+        6. For each key assumption, determine:
+           - Overall status based on its sub-assumptions
+           - Confidence level (high, medium, low) in your assessment
+           - Whether it is a central/load-bearing assumption whose failure would invalidate the hypothesis
+        
+        7. Assess causal reasoning quality:
+           - Are cause-effect relationships properly established?
+           - Are there confounding variables not addressed?
+           - Are correlation-causation errors present?
+           - Is the causal chain complete and logically sound?
+        
+        8. Provide a probabilistic assessment of the hypothesis:
+           - Estimate the probability that the hypothesis is correct (0-100%)
+           - Identify the specific conditions under which it would be more or less likely to be true
+        
+        9. Outline concrete experiments or observations that could further verify or falsify the hypothesis.
         
         Format your response as a JSON object with the following structure:
         
         ```json
         {{
-            "main_claim": "The main claim or conclusion of the hypothesis...",
+            "main_claim": "The precise main claim of the hypothesis...",
+            "causal_structure": "Brief description of the causal relationships in the hypothesis...",
             "assumptions": [
                 {{
                     "assumption": "First key assumption...",
+                    "is_central": true,
                     "sub_assumptions": [
                         {{
                             "sub_assumption": "First sub-assumption...",
-                            "status": "well-established", "plausible", "speculative", or "incorrect",
-                            "justification": "Your justification..."
+                            "status": "well-established/plausible/speculative/controversial/incorrect",
+                            "justification": "Your scientific justification with reference to evidence...",
+                            "confidence": "high/medium/low"
                         }},
                         ...
                     ],
-                    "overall_status": "well-established", "plausible", "speculative", or "incorrect"
+                    "overall_status": "well-established/plausible/speculative/controversial/incorrect",
+                    "confidence": "high/medium/low",
+                    "causal_role": "cause/effect/mediator/moderator"
                 }},
                 ...
             ],
+            "causal_reasoning_assessment": "Detailed assessment of the causal reasoning in the hypothesis...",
+            "logical_fallacies": ["Fallacy 1 and where it occurs", ...],
             "invalidating_issues": ["Issue 1 that invalidates the hypothesis", ...],
-            "fundamental_problems": true or false,
-            "overall_assessment": "Your overall assessment..."
+            "fundamental_problems": false,
+            "probability_correct": 75,
+            "probability_justification": "Justification for the probability estimate...",
+            "verification_experiments": ["Experiment 1 that could verify/falsify the hypothesis", ...],
+            "overall_assessment": "Your overall assessment with emphasis on scientific rigor..."
         }}
         ```
         """
@@ -555,23 +626,74 @@ class ReflectionAgent(BaseAgent):
             # Parse the JSON
             data = json.loads(json_content)
             
-            # Calculate a score based on the assumption statuses
+            # Calculate a score based on the assumption statuses and probability assessment
             status_scores = {
                 "well-established": 10,
-                "plausible": 7,
-                "speculative": 4,
+                "plausible": 7.5,
+                "speculative": 5,
+                "controversial": 3,
                 "incorrect": 0
             }
             
-            assumption_scores = []
-            for assumption in data["assumptions"]:
-                sub_scores = [status_scores.get(sub["status"], 5) for sub in assumption["sub_assumptions"]]
-                avg_sub_score = sum(sub_scores) / len(sub_scores) if sub_scores else 5
-                assumption_scores.append(avg_sub_score)
+            confidence_multipliers = {
+                "high": 1.0,
+                "medium": 0.8,
+                "low": 0.6
+            }
             
-            overall_score = sum(assumption_scores) / len(assumption_scores) if assumption_scores else 5
+            # Score each assumption based on its overall status and confidence
+            assumption_scores = []
+            central_assumption_scores = []
+            
+            for assumption in data["assumptions"]:
+                # Get the status score and confidence multiplier
+                status_score = status_scores.get(assumption["overall_status"], 5)
+                confidence_mult = confidence_multipliers.get(assumption["confidence"], 0.8)
+                
+                # Calculate the weighted score
+                weighted_score = status_score * confidence_mult
+                assumption_scores.append(weighted_score)
+                
+                # Keep track of scores for central assumptions
+                if assumption.get("is_central", False):
+                    central_assumption_scores.append(weighted_score)
+            
+            # Overall score calculation incorporating probability estimate
+            probability_factor = data.get("probability_correct", 50) / 50  # normalize to a 0-2 scale
+            
+            # Calculate basic average from all assumptions
+            basic_score = sum(assumption_scores) / len(assumption_scores) if assumption_scores else 5
+            
+            # If there are central assumptions, they get 2x weight
+            if central_assumption_scores:
+                central_score = sum(central_assumption_scores) / len(central_assumption_scores)
+                overall_score = (basic_score + (2 * central_score)) / 3
+            else:
+                overall_score = basic_score
+                
+            # Adjust by probability factor (capped to prevent extreme values)
+            probability_adjustment = min(1.5, max(0.5, probability_factor))
+            overall_score = overall_score * probability_adjustment
+            
+            # Severe penalty for fundamental problems
             if data.get("fundamental_problems", False):
-                overall_score = max(2, overall_score - 5)  # Penalty for fundamental problems
+                overall_score = max(1, overall_score * 0.4)
+                
+            # Cap the score at 10
+            overall_score = min(10, overall_score)
+            
+            # Extract strengths and improvement suggestions
+            strengths = []
+            improvement_suggestions = []
+            
+            # Consider well-established assumptions as strengths
+            for assumption in data["assumptions"]:
+                if assumption["overall_status"] in ["well-established", "plausible"] and assumption.get("is_central", False):
+                    strengths.append(f"Strong {assumption['overall_status']} central assumption: {assumption['assumption']}")
+                    
+            # Add verification experiments as improvement suggestions
+            for experiment in data.get("verification_experiments", []):
+                improvement_suggestions.append(f"Verification experiment: {experiment}")
             
             # Build the review text
             review_text = f"""
@@ -580,13 +702,18 @@ class ReflectionAgent(BaseAgent):
             ## Main Claim
             {data["main_claim"]}
             
+            ## Causal Structure
+            {data.get("causal_structure", "No causal structure provided.")}
+            
             ## Assumptions Analysis
             """
             
             for i, assumption in enumerate(data["assumptions"], 1):
                 review_text += f"""
                 ### Assumption {i}: {assumption["assumption"]}
-                **Status: {assumption["overall_status"].upper()}**
+                **Status: {assumption["overall_status"].upper()}** (Confidence: {assumption["confidence"].upper()})
+                **Central to Hypothesis: {"Yes" if assumption.get("is_central", False) else "No"}**
+                **Causal Role: {assumption.get("causal_role", "Not specified")}**
                 
                 #### Sub-assumptions:
                 """
@@ -594,16 +721,30 @@ class ReflectionAgent(BaseAgent):
                 for j, sub in enumerate(assumption["sub_assumptions"], 1):
                     review_text += f"""
                     {j}. {sub["sub_assumption"]}
-                    - Status: {sub["status"].upper()}
+                    - Status: {sub["status"].upper()} (Confidence: {sub.get("confidence", "medium").upper()})
                     - Justification: {sub["justification"]}
                     """
             
             review_text += f"""
+            ## Causal Reasoning Assessment
+            {data.get("causal_reasoning_assessment", "No causal reasoning assessment provided.")}
+            
+            ## Logical Fallacies Identified
+            {chr(10).join(['- ' + fallacy for fallacy in data.get("logical_fallacies", ["No logical fallacies identified."])])}
+            
             ## Invalidating Issues
-            {chr(10).join(['- ' + issue for issue in data.get("invalidating_issues", [])])}
+            {chr(10).join(['- ' + issue for issue in data.get("invalidating_issues", ["No invalidating issues identified."])])}
             
             ## Contains Fundamental Problems
             {"Yes" if data.get("fundamental_problems", False) else "No"}
+            
+            ## Probability Assessment
+            **Estimated Probability of Correctness:** {data.get("probability_correct", "Not provided")}%
+            
+            **Justification:** {data.get("probability_justification", "No justification provided.")}
+            
+            ## Verification Experiments
+            {chr(10).join(['- ' + exp for exp in data.get("verification_experiments", ["No verification experiments suggested."])])}
             
             ## Overall Assessment
             {data["overall_assessment"]}
@@ -617,9 +758,15 @@ class ReflectionAgent(BaseAgent):
                 text=review_text,
                 correctness_score=overall_score,
                 overall_score=overall_score,
-                critiques=data.get("invalidating_issues", []),
-                strengths=[],
-                improvement_suggestions=[]
+                critiques=data.get("invalidating_issues", []) + data.get("logical_fallacies", []),
+                strengths=strengths,
+                improvement_suggestions=improvement_suggestions,
+                metadata={
+                    "probability_correct": data.get("probability_correct", 50),
+                    "verification_experiments": data.get("verification_experiments", []),
+                    "causal_assessment": data.get("causal_reasoning_assessment", ""),
+                    "fundamental_problems": data.get("fundamental_problems", False)
+                }
             )
             
             logger.info(f"Completed deep verification review of hypothesis {hypothesis.id} with overall score {overall_score:.2f}")
@@ -830,7 +977,8 @@ class ReflectionAgent(BaseAgent):
                            hypothesis: Hypothesis, 
                            research_goal: ResearchGoal) -> Review:
         """
-        Perform a step-by-step simulation review of a hypothesis.
+        Perform a comprehensive simulation review of a hypothesis using computational modeling
+        approach to test predictions and identify sensitivity to initial conditions.
         
         Args:
             hypothesis (Hypothesis): The hypothesis to review.
@@ -841,9 +989,35 @@ class ReflectionAgent(BaseAgent):
         """
         logger.info(f"Performing simulation review of hypothesis {hypothesis.id}: {hypothesis.title}")
         
+        # Perform literature search for domain-specific methods if available
+        literature_context = ""
+        if self.literature_search:
+            # Search for simulation methods and models related to the hypothesis domain
+            query = f"{hypothesis.title} computational model simulation methodology {research_goal.text}"
+            search_result = await self.literature_search.search_with_citations(query, max_results=3)
+            
+            # Extract results and format them for the prompt
+            search_results = search_result.get("results", [])
+            
+            if search_results:
+                # Format the literature context
+                literature_sources = "\n\n".join([
+                    f"Source {i+1}: {result.get('title', 'Untitled')}\n"
+                    f"URL: {result.get('url', 'No URL')}\n"
+                    f"Summary: {result.get('snippet', 'No snippet available')}"
+                    for i, result in enumerate(search_results)
+                ])
+                
+                literature_context = f"""
+                ## Relevant Simulation Methodologies from Literature
+                Use these sources to inform your simulation approach:
+                
+                {literature_sources}
+                """
+        
         # Build the prompt
         prompt = f"""
-        You are performing a simulation review of a scientific hypothesis. This involves simulating the hypothesis step-by-step to identify potential failure points and inconsistencies.
+        You are performing a comprehensive simulation review of a scientific hypothesis, serving as an expert in computational modeling and systems analysis. This review involves creating a detailed computational model of the hypothesis, simulating its behavior under various conditions, and analyzing the outcomes systematically.
 
         Research Goal:
         {research_goal.text}
@@ -854,29 +1028,114 @@ class ReflectionAgent(BaseAgent):
         Description: {hypothesis.description}
         Supporting Evidence: {', '.join(hypothesis.supporting_evidence)}
         
-        Follow these steps:
-        1. Break down the hypothesis into a step-by-step model or mechanism.
-        2. For each step, simulate what would happen according to the hypothesis.
-        3. Identify any points where the simulation reveals inconsistencies, implausibilities, or contradictions.
-        4. Assess whether the overall simulation supports or refutes the hypothesis.
+        {literature_context}
+        
+        Follow these steps for a rigorous simulation analysis:
+        
+        1. System Decomposition:
+           - Break down the hypothesis into a complete step-by-step process or mechanism
+           - Identify all key components, variables, and relationships
+           - Determine inputs, outputs, feedback loops, and state variables
+        
+        2. Model Formulation:
+           - Create a formal model structure representing the hypothesis
+           - Define governing equations or logical rules for each component
+           - Specify parameter values and ranges based on scientific literature
+           - Identify initial conditions and boundary conditions
+        
+        3. Step-by-Step Simulation:
+           - For each step in the process, determine:
+             * Initial state and inputs
+             * Expected outputs according to the hypothesis
+             * Dependencies on previous steps
+             * Potential alternative pathways
+        
+        4. Sensitivity Analysis:
+           - Identify critical parameters that significantly affect outcomes
+           - Determine how robust the model is to parameter variations
+           - Assess which initial conditions lead to qualitatively different outcomes
+        
+        5. Robustness Testing:
+           - Introduce perturbations at different points in the simulation
+           - Analyze how the system responds to unexpected inputs
+           - Identify failure modes and their likelihood
+        
+        6. Emergent Properties:
+           - Identify unexpected behaviors that emerge from the simulation
+           - Assess whether these emergent properties support or contradict the hypothesis
+           - Determine if the hypothesis can account for known phenomena not explicitly modeled
+        
+        7. Predictive Power:
+           - Generate specific, quantitative predictions from the simulation
+           - Compare predictions to known experimental results if available
+           - Propose new experiments that could validate simulation predictions
+        
+        8. Simulation Outcomes:
+           - Assess whether the simulation supports, contradicts, or extends the hypothesis
+           - Identify unexpected insights generated by the simulation
+           - Determine confidence level in the simulation results
         
         Format your response as a JSON object with the following structure:
         
         ```json
         {{
+            "model_description": "Formal description of the computational model...",
+            "key_components": ["Component 1", "Component 2", ...],
+            "key_variables": ["Variable 1", "Variable 2", ...],
             "steps": [
                 {{
                     "step_description": "Description of this step in the mechanism...",
-                    "simulation_result": "What happens in this step according to the hypothesis...",
-                    "issues": ["Issue 1 with this step", "Issue 2 with this step", ...],
-                    "plausibility": "high", "medium", or "low"
+                    "inputs": ["Input 1", "Input 2", "..."],
+                    "simulation_result": "What happens in this step according to the model...",
+                    "output_values": {{
+                        "Variable 1": "value1", 
+                        "Variable 2": "value2"
+                    }},
+                    "issues": ["Issue 1 with this step", "Issue 2 with this step", "..."],
+                    "confidence": "high/medium/low",
+                    "plausibility": "high/medium/low"
                 }},
                 ...
             ],
-            "failure_points": ["Step index (0-based) of failure points"],
-            "overall_plausibility": "high", "medium", or "low",
+            "alternative_pathways": ["Alternative pathway 1", "Alternative pathway 2", ...],
+            "failure_points": [
+                {{
+                    "step_index": 0,
+                    "description": "Description of the failure point...",
+                    "likelihood": "high/medium/low",
+                    "impact": "critical/significant/minor"
+                }},
+                ...
+            ],
+            "sensitive_parameters": [
+                {{
+                    "parameter": "Parameter name...",
+                    "sensitivity": "high/medium/low",
+                    "critical_values": "Values at which behavior changes significantly..."
+                }},
+                ...
+            ],
+            "emergent_properties": ["Emergent property 1", "Emergent property 2", ...],
+            "predictions": [
+                {{
+                    "prediction": "Specific prediction...",
+                    "confidence": "high/medium/low",
+                    "testable": true
+                }},
+                ...
+            ],
+            "overall_plausibility": "high/medium/low",
+            "confidence_score": 75,
+            "simulation_limitations": ["Limitation 1", "Limitation 2", ...],
             "overall_assessment": "Your overall assessment...",
-            "suggestions": ["Suggestion 1 to improve the hypothesis", ...]
+            "suggested_modifications": [
+                {{
+                    "modification": "Suggested modification to the hypothesis...",
+                    "expected_improvement": "How this would improve the hypothesis...",
+                    "implementation_difficulty": "easy/moderate/difficult"
+                }},
+                ...
+            ]
         }}
         ```
         """
@@ -896,36 +1155,113 @@ class ReflectionAgent(BaseAgent):
             # Parse the JSON
             data = json.loads(json_content)
             
-            # Calculate a score based on the plausibility
+            # Calculate a score based on plausibility and confidence
             plausibility_scores = {
                 "high": 9,
                 "medium": 6,
                 "low": 3
             }
             
-            # Count steps with different plausibility levels
-            step_plausibilities = [step.get("plausibility", "medium") for step in data["steps"]]
+            # Calculate weights for each step based on failure impact
+            step_weights = [1.0] * len(data["steps"])  # Default all steps to weight 1.0
             
-            # Calculate overall score based on individual step plausibilities
-            step_scores = [plausibility_scores.get(p, 5) for p in step_plausibilities]
-            avg_step_score = sum(step_scores) / len(step_scores) if step_scores else 5
+            # Adjust weights based on failure points
+            for failure in data.get("failure_points", []):
+                step_idx = failure.get("step_index", 0)
+                if 0 <= step_idx < len(step_weights):
+                    impact_weight = {
+                        "critical": 3.0,
+                        "significant": 2.0,
+                        "minor": 1.5
+                    }.get(failure.get("impact", "minor"), 1.5)
+                    
+                    likelihood_factor = {
+                        "high": 0.2,
+                        "medium": 0.5,
+                        "low": 0.8
+                    }.get(failure.get("likelihood", "medium"), 0.5)
+                    
+                    # Reduce the weight (more penalty for high likelihood critical failures)
+                    step_weights[step_idx] = step_weights[step_idx] * likelihood_factor / impact_weight
+            
+            # Calculate step scores with weights
+            weighted_step_scores = []
+            step_plausibilities = [step.get("plausibility", "medium") for step in data["steps"]]
+            step_confidences = [step.get("confidence", "medium") for step in data["steps"]]
+            
+            for i, (plausibility, confidence, weight) in enumerate(zip(step_plausibilities, step_confidences, step_weights)):
+                plausibility_score = plausibility_scores.get(plausibility, 5)
+                confidence_factor = {"high": 1.0, "medium": 0.85, "low": 0.7}.get(confidence, 0.85)
+                weighted_step_scores.append(plausibility_score * confidence_factor * weight)
+            
+            # Calculate average step score
+            avg_step_score = sum(weighted_step_scores) / len(weighted_step_scores) if weighted_step_scores else 5
             
             # Adjust score based on overall plausibility assessment
             overall_plausibility = data.get("overall_plausibility", "medium")
             overall_plausibility_score = plausibility_scores.get(overall_plausibility, 5)
             
-            # Combine step average and overall assessment
-            overall_score = (avg_step_score + overall_plausibility_score) / 2
+            # Factor in confidence score
+            confidence_score = data.get("confidence_score", 50)
+            confidence_factor = confidence_score / 50  # Normalize to a scale centered at 1.0
             
-            # Apply penalty for failure points
-            num_failures = len(data.get("failure_points", []))
-            if num_failures > 0:
-                failure_penalty = min(4, num_failures)  # Cap penalty at 4 points
-                overall_score = max(1, overall_score - failure_penalty)
+            # Calculate overall score combining step scores, overall plausibility, and confidence
+            combined_score = (avg_step_score * 0.6) + (overall_plausibility_score * 0.4)
+            overall_score = combined_score * min(1.5, max(0.5, confidence_factor))
+            
+            # Apply additional adjustments
+            
+            # Bonus for many testable predictions
+            testable_predictions = [p for p in data.get("predictions", []) if p.get("testable", False)]
+            if len(testable_predictions) >= 3:
+                overall_score = min(10, overall_score + 0.5)
+                
+            # Penalty for many sensitive parameters (model that's too brittle)
+            high_sensitivity_params = [p for p in data.get("sensitive_parameters", []) if p.get("sensitivity", "") == "high"]
+            if len(high_sensitivity_params) >= 3:
+                overall_score = max(1, overall_score - 1.0)
+                
+            # Final cap at 10
+            overall_score = min(10, max(1, overall_score))
+            
+            # Extract strengths, critiques and improvement suggestions
+            strengths = []
+            critiques = []
+            improvement_suggestions = []
+            
+            # Add emergent properties as strengths
+            for prop in data.get("emergent_properties", []):
+                strengths.append(f"Emergent property: {prop}")
+                
+            # Add high-confidence predictions as strengths
+            for pred in data.get("predictions", []):
+                if pred.get("confidence", "") == "high" and pred.get("testable", False):
+                    strengths.append(f"Strong testable prediction: {pred.get('prediction', '')}")
+            
+            # Add failure points as critiques
+            for failure in data.get("failure_points", []):
+                critiques.append(f"Failure point: {failure.get('description', '')}")
+                
+            # Add simulation limitations as critiques
+            for limitation in data.get("simulation_limitations", []):
+                critiques.append(f"Simulation limitation: {limitation}")
+                
+            # Add suggested modifications as improvement suggestions
+            for suggestion in data.get("suggested_modifications", []):
+                improvement_suggestions.append(f"{suggestion.get('modification', '')}: {suggestion.get('expected_improvement', '')}")
             
             # Build the review text
             review_text = f"""
             # Simulation Review of Hypothesis: {hypothesis.title}
+            
+            ## Computational Model
+            {data.get("model_description", "No model description provided.")}
+            
+            ### Key Components
+            {chr(10).join(['- ' + comp for comp in data.get("key_components", ["No key components identified."])])}
+            
+            ### Key Variables
+            {chr(10).join(['- ' + var for var in data.get("key_variables", ["No key variables identified."])])}
             
             ## Step-by-Step Simulation
             """
@@ -933,34 +1269,93 @@ class ReflectionAgent(BaseAgent):
             for i, step in enumerate(data["steps"], 1):
                 review_text += f"""
                 ### Step {i}: {step["step_description"]}
+                **Inputs:** {', '.join(step.get("inputs", ["None specified"]))}
+                
                 **Simulation Result:** {step["simulation_result"]}
                 
-                **Plausibility:** {step.get("plausibility", "medium").upper()}
+                **Output Values:** 
+                {chr(10).join(['- ' + key + ': ' + value for key, value in step.get("output_values", {}).items()])}
+                
+                **Plausibility:** {step.get("plausibility", "medium").upper()} (Confidence: {step.get("confidence", "medium").upper()})
                 
                 **Issues:**
                 {chr(10).join(['- ' + issue for issue in step.get("issues", [])])}
                 """
             
-            review_text += f"""
+            review_text += """
+            ## Alternative Pathways
+            """
+            for pathway in data.get("alternative_pathways", ["No alternative pathways identified."]):
+                review_text += f"- {pathway}\n"
+            
+            review_text += """
             ## Failure Points
-            {chr(10).join(['- Step ' + str(int(i) + 1) + ': ' + data["steps"][int(i)]["step_description"] for i in data.get("failure_points", [])])}
+            """
+            if data.get("failure_points", []):
+                for failure in data["failure_points"]:
+                    step_index = failure.get("step_index", 0) + 1  # Convert to 1-based for display
+                    review_text += f"""
+                    - Step {step_index}: {failure.get("description", "")}
+                      Likelihood: {failure.get("likelihood", "medium").upper()}, Impact: {failure.get("impact", "minor").upper()}
+                    """
+            else:
+                review_text += "No specific failure points identified.\n"
             
+            review_text += """
+            ## Sensitivity Analysis
+            """
+            if data.get("sensitive_parameters", []):
+                for param in data["sensitive_parameters"]:
+                    review_text += f"""
+                    - Parameter: {param.get("parameter", "")}
+                      Sensitivity: {param.get("sensitivity", "medium").upper()}
+                      Critical Values: {param.get("critical_values", "Not specified")}
+                    """
+            else:
+                review_text += "No sensitivity analysis provided.\n"
+            
+            review_text += """
+            ## Emergent Properties
+            """
+            for prop in data.get("emergent_properties", ["No emergent properties identified."]):
+                review_text += f"- {prop}\n"
+            
+            review_text += """
+            ## Predictions
+            """
+            if data.get("predictions", []):
+                for pred in data["predictions"]:
+                    review_text += f"""
+                    - {pred.get("prediction", "")}
+                      Confidence: {pred.get("confidence", "medium").upper()}, Testable: {"Yes" if pred.get("testable", False) else "No"}
+                    """
+            else:
+                review_text += "No specific predictions generated.\n"
+            
+            review_text += f"""
             ## Overall Plausibility
-            {data.get("overall_plausibility", "medium").upper()}
+            {data.get("overall_plausibility", "medium").upper()} (Confidence: {data.get("confidence_score", 50)}%)
             
+            ## Simulation Limitations
+            """
+            for limitation in data.get("simulation_limitations", ["No limitations specified."]):
+                review_text += f"- {limitation}\n"
+            
+            review_text += f"""
             ## Overall Assessment
             {data["overall_assessment"]}
             
-            ## Suggestions for Improvement
-            {chr(10).join(['- ' + s for s in data.get("suggestions", [])])}
+            ## Suggested Modifications
             """
-            
-            # Create critiques and improvement suggestions
-            critiques = []
-            for i in data.get("failure_points", []):
-                i = int(i)
-                if i < len(data["steps"]):
-                    critiques.extend(data["steps"][i].get("issues", []))
+            if data.get("suggested_modifications", []):
+                for mod in data["suggested_modifications"]:
+                    review_text += f"""
+                    - {mod.get("modification", "")}
+                      Expected Improvement: {mod.get("expected_improvement", "")}
+                      Implementation Difficulty: {mod.get("implementation_difficulty", "moderate").upper()}
+                    """
+            else:
+                review_text += "No specific modifications suggested.\n"
             
             # Create the review
             review = Review(
@@ -970,8 +1365,15 @@ class ReflectionAgent(BaseAgent):
                 text=review_text,
                 overall_score=overall_score,
                 critiques=critiques,
-                strengths=[],
-                improvement_suggestions=data.get("suggestions", [])
+                strengths=strengths,
+                improvement_suggestions=improvement_suggestions,
+                metadata={
+                    "model_description": data.get("model_description", ""),
+                    "predictions": data.get("predictions", []),
+                    "confidence_score": data.get("confidence_score", 50),
+                    "failure_points": data.get("failure_points", []),
+                    "emergent_properties": data.get("emergent_properties", [])
+                }
             )
             
             logger.info(f"Completed simulation review of hypothesis {hypothesis.id} with overall score {overall_score:.2f}")

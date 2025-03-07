@@ -442,31 +442,96 @@ class CoScientistSystem:
     
     async def _review_hypothesis(self, hypothesis: Hypothesis) -> None:
         """
-        Review a hypothesis.
+        Review a hypothesis using a mix of review types including enhanced deep verification
+        and simulation approaches.
         
         Args:
             hypothesis (Hypothesis): The hypothesis to review.
         """
         try:
-            # Choose review type based on state
-            if random.random() < 0.7:
-                # Most of the time: do a full review
+            # Get existing reviews for this hypothesis to determine what types we need
+            existing_reviews = self.db.get_reviews_for_hypothesis(hypothesis.id)
+            existing_review_types = set(review.review_type for review in existing_reviews)
+            
+            # Determine the iteration and system state
+            iteration = self.current_state["iterations_completed"]
+            top_hypothesis = hypothesis.id in self.current_state.get("top_hypotheses", [])
+            elo_rating = hypothesis.elo_rating if hypothesis.elo_rating is not None else 1200
+            
+            # Choose review type based on state and what's missing
+            
+            # For new hypotheses, always start with a full review
+            if "full" not in existing_review_types:
                 review = await self.reflection.full_review(
                     hypothesis,
                     self.current_research_goal
                 )
-            elif random.random() < 0.5:
-                # Sometimes: do a deep verification review
+            
+            # For hypotheses with better ratings that don't have a deep verification review, add one
+            elif "deep_verification" not in existing_review_types and (top_hypothesis or elo_rating > 1250):
                 review = await self.reflection.deep_verification_review(
                     hypothesis,
                     self.current_research_goal
                 )
-            else:
-                # Sometimes: do an observation review
+                
+            # For top hypotheses without simulation reviews, do a simulation review
+            elif "simulation" not in existing_review_types and (top_hypothesis or elo_rating > 1280):
+                review = await self.reflection.simulation_review(
+                    hypothesis,
+                    self.current_research_goal
+                )
+            
+            # For hypotheses that could benefit from observation reviews
+            elif "observation" not in existing_review_types and iteration > 1:
                 review = await self.reflection.observation_review(
                     hypothesis,
                     self.current_research_goal
                 )
+            
+            # For hypotheses that already have basic reviews, choose randomly with higher weight
+            # to deep verification and simulation for later iterations
+            else:
+                r = random.random()
+                
+                if iteration < 2:
+                    # Early iterations focus on basic reviews
+                    if r < 0.5:
+                        review = await self.reflection.full_review(
+                            hypothesis,
+                            self.current_research_goal
+                        )
+                    elif r < 0.8:
+                        review = await self.reflection.deep_verification_review(
+                            hypothesis,
+                            self.current_research_goal
+                        )
+                    else:
+                        review = await self.reflection.observation_review(
+                            hypothesis,
+                            self.current_research_goal
+                        )
+                else:
+                    # Later iterations emphasize deep verification and simulation
+                    if r < 0.3:
+                        review = await self.reflection.full_review(
+                            hypothesis,
+                            self.current_research_goal
+                        )
+                    elif r < 0.6:
+                        review = await self.reflection.deep_verification_review(
+                            hypothesis,
+                            self.current_research_goal
+                        )
+                    elif r < 0.85:
+                        review = await self.reflection.simulation_review(
+                            hypothesis,
+                            self.current_research_goal
+                        )
+                    else:
+                        review = await self.reflection.observation_review(
+                            hypothesis,
+                            self.current_research_goal
+                        )
             
             # Save review to database
             self.db.reviews.save(review)
@@ -481,6 +546,38 @@ class CoScientistSystem:
                 hypothesis.correctness_score = review.correctness_score
             if review.testability_score is not None:
                 hypothesis.testability_score = review.testability_score
+                
+            # Update hypothesis metadata with verification and simulation insights
+            if review.review_type == "deep_verification" and review.metadata:
+                # Add probability assessment to hypothesis metadata if available
+                prob_correct = review.metadata.get("probability_correct")
+                if prob_correct is not None:
+                    if not hypothesis.metadata:
+                        hypothesis.metadata = {}
+                    hypothesis.metadata["probability_correct"] = prob_correct
+                    
+                # Add verification experiments to metadata
+                verification_exps = review.metadata.get("verification_experiments", [])
+                if verification_exps:
+                    if not hypothesis.metadata:
+                        hypothesis.metadata = {}
+                    hypothesis.metadata["verification_experiments"] = verification_exps
+                    
+            # Update with simulation insights
+            if review.review_type == "simulation" and review.metadata:
+                # Add predictions to hypothesis metadata
+                predictions = review.metadata.get("predictions", [])
+                if predictions:
+                    if not hypothesis.metadata:
+                        hypothesis.metadata = {}
+                    hypothesis.metadata["predictions"] = predictions
+                    
+                # Add emergent properties to metadata
+                emergent_props = review.metadata.get("emergent_properties", [])
+                if emergent_props:
+                    if not hypothesis.metadata:
+                        hypothesis.metadata = {}
+                    hypothesis.metadata["emergent_properties"] = emergent_props
                 
             # Save updated hypothesis
             self.db.hypotheses.save(hypothesis)
@@ -728,7 +825,8 @@ class CoScientistSystem:
     
     async def _generate_research_overview(self) -> ResearchOverview:
         """
-        Generate a research overview.
+        Generate a comprehensive research overview incorporating deep verification and
+        simulation insights for enhanced scientific rigor.
         
         Returns:
             ResearchOverview: The generated research overview.
@@ -766,14 +864,40 @@ class CoScientistSystem:
                     hypotheses_dict,
                     self.current_research_goal
                 )
+            
+            # Get verification and simulation reviews for top hypotheses
+            verification_analysis = None
+            
+            # Get all deep verification and simulation reviews
+            all_reviews = self.db.reviews.get_all()
+            deep_verification_reviews = [r for r in all_reviews if r.review_type == "deep_verification"]
+            simulation_reviews = [r for r in all_reviews if r.review_type == "simulation"]
+            
+            # Only proceed with verification analysis if we have enough reviews
+            if len(deep_verification_reviews) + len(simulation_reviews) >= 3:
+                verification_analysis = await self.meta_review.analyze_verification_reviews(
+                    deep_verification_reviews,
+                    simulation_reviews,
+                    self.current_research_goal
+                )
                 
-            # Generate research overview
+                # Add logging about what was found
+                logger.info(f"Analyzed {len(deep_verification_reviews)} deep verification reviews and "
+                           f"{len(simulation_reviews)} simulation reviews for verification analysis")
+                
+                if verification_analysis:
+                    num_patterns = len(verification_analysis.get("causal_reasoning_patterns", []))
+                    num_experiments = len(verification_analysis.get("verification_experiments", []))
+                    logger.info(f"Found {num_patterns} causal reasoning patterns and {num_experiments} verification experiments")
+                
+            # Generate enhanced research overview with verification insights
             overview = await self.meta_review.generate_research_overview(
                 self.current_research_goal,
                 top_hypotheses,
                 meta_review,
                 tournament_analysis,
-                protocol_analysis
+                protocol_analysis,
+                verification_analysis
             )
             
             # Save research overview to database

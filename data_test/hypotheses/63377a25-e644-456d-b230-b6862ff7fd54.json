@@ -1,0 +1,24 @@
+{
+  "id": "63377a25-e644-456d-b230-b6862ff7fd54",
+  "title": "Mitochondrial Complex I Dysfunction and Neurodegeneration",
+  "description": "\n        This hypothesis proposes that initial defects in mitochondrial Complex I activity trigger a series of downstream effects:\n        \n        1. Complex I dysfunction leads to increased ROS production\n        2. ROS damages mitochondrial DNA and proteins\n        3. This leads to mitochondrial permeability transition pore opening\n        4. Cytochrome c is released, activating caspase pathways\n        5. Neuronal apoptosis occurs, causing neurodegenerative symptoms\n        ",
+  "summary": "Mitochondrial Complex I dysfunction leads to neurodegeneration via ROS production and apoptotic pathways.",
+  "supporting_evidence": [
+    "Complex I deficiency found in neurodegenerative diseases"
+  ],
+  "citations": [],
+  "creator": "generation",
+  "status": "generated",
+  "source": "system",
+  "created_at": "2025-03-07T16:39:54.598998",
+  "parent_hypotheses": [],
+  "elo_rating": 1200,
+  "matches_played": 0,
+  "novelty_score": null,
+  "correctness_score": null,
+  "testability_score": null,
+  "tags": [],
+  "metadata": {},
+  "user_id": null,
+  "literature_grounded": false
+}
