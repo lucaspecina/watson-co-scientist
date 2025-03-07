@@ -73,15 +73,22 @@ As of March 7, 2025, we have completed the first iteration of the system with th
    - Updated template.json to reflect correct field names
    - Fixed issue in OllamaProvider initialization
 
-3. **Documentation Enhancements**:
+3. **Model Fixes**:
+   - Added missing `metadata` field to `MetaReview` class to resolve validation errors
+   - Added missing `metadata` field to `ResearchOverview` class for consistency
+   - Fixed errors in meta-review and research overview generation processes
+
+4. **Documentation Enhancements**:
    - Updated README with comprehensive usage instructions
    - Added detailed examples for both CLI and API interaction
    - Improved environment variable documentation
 
-4. **Testing**:
+5. **Testing**:
    - Verified system initialization with API keys
    - Tested API server functionality
    - Ensured proper error handling when keys are missing
+   - Added test_run.py script for quick testing of system functionality
+   - Validated multi-iteration runs and research overview generation
 
 ## Short-Term Plan (Next 3 Iterations)
 

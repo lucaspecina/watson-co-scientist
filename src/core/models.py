@@ -124,6 +124,7 @@ class ResearchOverview(BaseModel):
     top_hypotheses: List[str] = Field(default_factory=list, description="IDs of top hypotheses")
     potential_contacts: List[Dict[str, str]] = Field(default_factory=list, description="Potential research contacts")
     created_at: datetime = Field(default_factory=datetime.now)
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
     
     class Config:
         validate_assignment = True
@@ -137,6 +138,7 @@ class MetaReview(BaseModel):
     improvement_areas: List[str] = Field(..., description="Areas for improvement")
     successful_approaches: List[str] = Field(..., description="Approaches that were successful")
     created_at: datetime = Field(default_factory=datetime.now)
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
     
     class Config:
         validate_assignment = True
