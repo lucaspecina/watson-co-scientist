@@ -134,6 +134,7 @@ class Review(BaseModel):
     improvement_suggestions: List[str] = Field(default_factory=list, description="Suggestions for improvement")
     created_at: datetime = Field(default_factory=datetime.now)
     user_id: Optional[str] = Field(None, description="ID of the user who created this review (if user-submitted)")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
     
     class Config:
         validate_assignment = True

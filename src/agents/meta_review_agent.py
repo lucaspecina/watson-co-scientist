@@ -14,7 +14,8 @@ from ..core.models import (
     Review, 
     TournamentMatch, 
     ResearchOverview,
-    MetaReview
+    MetaReview,
+    ExperimentalProtocol
 )
 from ..tools.web_search import WebSearchTool
 
@@ -238,11 +239,122 @@ class MetaReviewAgent(BaseAgent):
                 "synthesis": "Error parsing tournament analysis"
             }
     
+    async def analyze_protocols(self,
+                                  protocols: List[ExperimentalProtocol],
+                                  hypotheses: Dict[str, Hypothesis],
+                                  research_goal: ResearchGoal) -> Dict[str, Any]:
+        """
+        Analyze experimental protocols to identify patterns and best practices.
+        
+        Args:
+            protocols (List[ExperimentalProtocol]): The experimental protocols.
+            hypotheses (Dict[str, Hypothesis]): Dictionary of hypotheses by ID.
+            research_goal (ResearchGoal): The research goal.
+            
+        Returns:
+            Dict[str, Any]: The protocol analysis.
+        """
+        logger.info(f"Analyzing {len(protocols)} experimental protocols for research goal {research_goal.id}")
+        
+        if not protocols:
+            return {
+                "common_elements": [],
+                "innovative_approaches": [],
+                "methodological_gaps": [],
+                "recommendations": []
+            }
+        
+        # Prepare protocol summaries
+        protocol_summaries = []
+        for i, protocol in enumerate(protocols, 1):
+            hypothesis = hypotheses.get(protocol.hypothesis_id)
+            if not hypothesis:
+                continue
+                
+            summary = f"Protocol {i} (ID: {protocol.id}):\n"
+            summary += f"Title: {protocol.title}\n"
+            summary += f"For Hypothesis: {hypothesis.title}\n"
+            summary += f"Steps: {len(protocol.steps)}\n"
+            summary += f"Materials: {', '.join(protocol.materials[:5])}"
+            if len(protocol.materials) > 5:
+                summary += f" and {len(protocol.materials) - 5} more"
+            summary += f"\nEquipment: {', '.join(protocol.equipment[:3])}"
+            if len(protocol.equipment) > 3:
+                summary += f" and {len(protocol.equipment) - 3} more"
+            summary += f"\nExpected Results: {protocol.expected_results[:100]}...\n"
+            
+            protocol_summaries.append(summary)
+        
+        protocol_text = "\n\n".join(protocol_summaries)
+        
+        # Build the prompt
+        prompt = f"""
+        You are analyzing multiple experimental protocols designed to test scientific hypotheses. Your goal is to identify common elements, innovative approaches, and potential methodological gaps.
+        
+        Research Goal:
+        {research_goal.text}
+        
+        Protocol Summaries:
+        {protocol_text}
+        
+        Your task is to:
+        1. Identify common methodological elements across protocols
+        2. Recognize innovative or unusual experimental approaches
+        3. Identify potential methodological gaps or blind spots
+        4. Formulate recommendations for designing better protocols
+        
+        Format your response as a JSON object with the following structure:
+        
+        ```json
+        {{
+            "common_elements": ["Element 1", "Element 2", ...],
+            "innovative_approaches": ["Approach 1", "Approach 2", ...],
+            "methodological_gaps": ["Gap 1", "Gap 2", ...],
+            "recommendations": ["Recommendation 1", "Recommendation 2", ...],
+            "synthesis": "Overall analysis of the protocols and their implications"
+        }}
+        ```
+        
+        Focus on broader patterns rather than specific details of individual protocols.
+        """
+        
+        # Generate protocol analysis
+        response = await self.generate(prompt)
+        
+        # Extract the JSON from the response
+        try:
+            # Find JSON content between backticks or at the start/end of the response
+            json_content = response
+            if "```json" in response:
+                json_content = response.split("```json")[1].split("```")[0].strip()
+            elif "```" in response:
+                json_content = response.split("```")[1].split("```")[0].strip()
+                
+            # Parse the JSON
+            data = json.loads(json_content)
+            
+            logger.info(f"Completed protocol analysis for research goal {research_goal.id}")
+            return data
+            
+        except Exception as e:
+            logger.error(f"Error parsing protocol analysis from response: {e}")
+            logger.debug(f"Response: {response}")
+            
+            # Return a basic analysis in case of error
+            return {
+                "common_elements": ["Error parsing protocol analysis"],
+                "innovative_approaches": [],
+                "methodological_gaps": ["Error parsing protocol analysis"],
+                "recommendations": ["Error parsing protocol analysis"],
+                "synthesis": "Error parsing protocol analysis"
+            }
+    
     async def generate_research_overview(self, 
                                     research_goal: ResearchGoal,
                                     top_hypotheses: List[Hypothesis],
                                     meta_review: Optional[MetaReview] = None,
-                                    tournament_analysis: Optional[Dict[str, Any]] = None) -> ResearchOverview:
+                                    tournament_analysis: Optional[Dict[str, Any]] = None,
+                                    protocol_analysis: Optional[Dict[str, Any]] = None) -> ResearchOverview:
         """
         Generate a research overview based on top hypotheses and insights.
         
@@ -294,6 +406,25 @@ class MetaReviewAgent(BaseAgent):
             Recommendations:
             {chr(10).join(['- ' + rec for rec in tournament_analysis.get('recommendations', [])])}
             """
+            
+        # Prepare protocol analysis text
+        protocol_text = ""
+        if protocol_analysis:
+            protocol_text = f"""
+            Protocol Analysis:
+            
+            Common Methodological Elements:
+            {chr(10).join(['- ' + element for element in protocol_analysis.get('common_elements', [])])}
+            
+            Innovative Approaches:
+            {chr(10).join(['- ' + approach for approach in protocol_analysis.get('innovative_approaches', [])])}
+            
+            Methodological Gaps:
+            {chr(10).join(['- ' + gap for gap in protocol_analysis.get('methodological_gaps', [])])}
+            
+            Recommendations:
+            {chr(10).join(['- ' + rec for rec in protocol_analysis.get('recommendations', [])])}
+            """
         
         # Build the prompt
         prompt = f"""
@@ -308,6 +439,8 @@ class MetaReviewAgent(BaseAgent):
         {meta_review_text}
         
         {tournament_text}
+        
+        {protocol_text}
         
         Your task is to:
         1. Synthesize the top hypotheses into a coherent research overview

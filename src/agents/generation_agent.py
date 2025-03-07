@@ -1,21 +1,29 @@
 """
-Generation Agent for generating novel hypotheses and research proposals.
+Generation Agent for generating novel hypotheses, research proposals, and experimental protocols.
 """
 
 import json
 import logging
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 
 from .base_agent import BaseAgent
 from ..config.config import SystemConfig
-from ..core.models import Hypothesis, ResearchGoal, HypothesisSource, Citation
+from ..core.models import Hypothesis, ResearchGoal, HypothesisSource, Citation, ExperimentalProtocol
 from ..tools.web_search import WebSearchTool, ScientificLiteratureSearch
 
 logger = logging.getLogger("co_scientist")
 
 class GenerationAgent(BaseAgent):
     """
-    Agent responsible for generating novel research hypotheses and proposals.
+    Agent responsible for generating novel research hypotheses, proposals, and experimental protocols.
+    
+    This agent can:
+    1. Generate initial hypotheses based on research goals
+    2. Generate literature-grounded hypotheses using scientific search
+    3. Generate hypotheses through simulated scientific debates
+    4. Generate focused hypotheses on specific topics
+    5. Generate experimental protocols to test hypotheses
+    6. Generate integrated hypothesis-protocol pairs
     """
     
     def __init__(self, config: SystemConfig):
@@ -573,3 +581,197 @@ class GenerationAgent(BaseAgent):
             logger.error(f"Error parsing focused hypothesis from response: {e}")
             logger.debug(f"Response: {response}")
             return None
+            
+    async def generate_experimental_protocol(self, 
+                                      hypothesis: Hypothesis, 
+                                      research_goal: ResearchGoal) -> Optional[ExperimentalProtocol]:
+        """
+        Generate an experimental protocol to test a given hypothesis.
+        
+        Args:
+            hypothesis (Hypothesis): The hypothesis to test.
+            research_goal (ResearchGoal): The research goal.
+            
+        Returns:
+            Optional[ExperimentalProtocol]: The generated experimental protocol or None if generation fails.
+        """
+        logger.info(f"Generating experimental protocol for hypothesis {hypothesis.id}: {hypothesis.title}")
+        
+        # Look for citations if literature search is enabled
+        literature_context = ""
+        if self.literature_search:
+            # Search for experimental methods related to the hypothesis
+            query = f"{hypothesis.title} experimental methods protocols techniques"
+            search_result = await self.literature_search.search_with_citations(query, max_results=3)
+            
+            # Extract results and citations
+            search_results = search_result.get("results", [])
+            
+            if search_results:
+                # Format the literature context
+                literature_sources = "\n\n".join([
+                    f"Source {i+1}: {result.get('title', 'Untitled')}\n"
+                    f"URL: {result.get('url', 'No URL')}\n"
+                    f"Summary: {result.get('snippet', 'No snippet available')}"
+                    for i, result in enumerate(search_results)
+                ])
+                
+                literature_context = f"""
+                ## Relevant Experimental Methods from Literature
+                Use these sources to inform your thinking about appropriate experimental methods:
+                
+                {literature_sources}
+                """
+                
+        # Build the prompt
+        prompt = f"""
+        You are tasked with generating a detailed experimental protocol to test the following scientific hypothesis.
+        
+        Research Goal:
+        {research_goal.text}
+        
+        Hypothesis to Test:
+        Title: {hypothesis.title}
+        Summary: {hypothesis.summary}
+        Description: {hypothesis.description}
+        Supporting Evidence: {', '.join(hypothesis.supporting_evidence)}
+        
+        {literature_context}
+        
+        Please design a comprehensive experimental protocol that would allow scientists to test this hypothesis effectively.
+        The protocol should be detailed, practical, and scientifically rigorous.
+        
+        Include the following components:
+        1. A clear title for the protocol
+        2. A detailed description of the overall approach
+        3. Step-by-step experimental procedures
+        4. Materials required (reagents, equipment, samples, etc.)
+        5. Equipment needed
+        6. Expected results if the hypothesis is correct
+        7. Potential limitations or challenges of the protocol
+        8. Controls to ensure validity of results
+        9. Statistical analysis approach
+        
+        Format your response as a JSON object with the following structure:
+        
+        ```json
+        {{
+            "title": "Title of the experimental protocol",
+            "description": "Detailed description of the protocol approach...",
+            "steps": [
+                "Step 1: ...",
+                "Step 2: ...",
+                ...
+            ],
+            "materials": [
+                "Material 1",
+                "Material 2",
+                ...
+            ],
+            "equipment": [
+                "Equipment 1",
+                "Equipment 2",
+                ...
+            ],
+            "expected_results": "Description of expected results if hypothesis is correct...",
+            "limitations": [
+                "Limitation 1",
+                "Limitation 2",
+                ...
+            ],
+            "controls": [
+                "Control 1: ...",
+                "Control 2: ...",
+                ...
+            ],
+            "analysis_approach": "Description of statistical or analytical approach..."
+        }}
+        ```
+        
+        The protocol should be technically feasible with current technology and scientific methods.
+        Make sure the protocol directly tests the key aspects of the hypothesis.
+        """
+        
+        # Generate the protocol
+        response = await self.generate(prompt)
+        
+        # Extract the JSON from the response
+        try:
+            # Find JSON content between backticks or at the start/end of the response
+            json_content = response
+            if "```json" in response:
+                json_content = response.split("```json")[1].split("```")[0].strip()
+            elif "```" in response:
+                json_content = response.split("```")[1].split("```")[0].strip()
+                
+            # Parse the JSON
+            data = json.loads(json_content)
+            
+            # Format the steps to include controls and analysis if they exist
+            steps = data["steps"]
+            
+            # Add controls to steps if they exist
+            if "controls" in data and data["controls"]:
+                steps.append("## Controls")
+                steps.extend(data["controls"])
+                
+            # Add analysis approach to steps if it exists
+            if "analysis_approach" in data and data["analysis_approach"]:
+                steps.append("## Analysis Approach")
+                steps.append(data["analysis_approach"])
+            
+            # Create the experimental protocol
+            protocol = ExperimentalProtocol(
+                hypothesis_id=hypothesis.id,
+                title=data["title"],
+                description=data["description"],
+                steps=steps,
+                materials=data["materials"],
+                equipment=data["equipment"],
+                expected_results=data["expected_results"],
+                limitations=data.get("limitations", []),
+                creator="generation",
+                metadata={
+                    "research_goal_id": hypothesis.metadata.get("research_goal_id"),
+                    "controls": data.get("controls", []),
+                    "analysis_approach": data.get("analysis_approach", "")
+                }
+            )
+            
+            logger.info(f"Generated experimental protocol for hypothesis {hypothesis.id}: {protocol.title}")
+            return protocol
+            
+        except Exception as e:
+            logger.error(f"Error parsing experimental protocol from response: {e}")
+            logger.debug(f"Response: {response}")
+            return None
+            
+    async def generate_hypothesis_with_protocol(self, 
+                                         research_goal: ResearchGoal) -> Tuple[Optional[Hypothesis], Optional[ExperimentalProtocol]]:
+        """
+        Generate a hypothesis and corresponding experimental protocol in a single step.
+        
+        Args:
+            research_goal (ResearchGoal): The research goal.
+            
+        Returns:
+            Tuple[Optional[Hypothesis], Optional[ExperimentalProtocol]]: The generated hypothesis and protocol pair.
+        """
+        logger.info(f"Generating hypothesis with integrated protocol for research goal {research_goal.id}")
+        
+        # First generate a literature-grounded hypothesis if possible
+        if self.literature_search:
+            hypothesis = await self.generate_hypotheses_with_literature(research_goal, num_hypotheses=1)
+            if hypothesis and len(hypothesis) > 0:
+                # Now generate the experimental protocol
+                protocol = await self.generate_experimental_protocol(hypothesis[0], research_goal)
+                return hypothesis[0], protocol
+        
+        # Fallback to non-literature approach
+        hypothesis = await self.generate_initial_hypotheses(research_goal, num_hypotheses=1)
+        if hypothesis and len(hypothesis) > 0:
+            # Generate the experimental protocol
+            protocol = await self.generate_experimental_protocol(hypothesis[0], research_goal)
+            return hypothesis[0], protocol
+            
+        return None, None

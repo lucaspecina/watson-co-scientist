@@ -15,7 +15,8 @@ from ..core.models import (
     Review,
     TournamentMatch,
     ResearchOverview,
-    MetaReview
+    MetaReview,
+    ExperimentalProtocol
 )
 
 logger = logging.getLogger("co_scientist")
@@ -190,6 +191,30 @@ class SupervisorAgent(BaseAgent):
         if user_hypotheses_count > 0:
             user_hypotheses_text = f"There are {user_hypotheses_count} user-submitted hypotheses that need to be evaluated.\n\n"
         
+        # Check if we need to generate experimental protocols
+        protocols_count = 0
+        hypotheses_without_protocols = 0
+        
+        try:
+            if system and db:
+                # Count experimental protocols
+                protocols_count = len(db.experimental_protocols.get_all())
+                
+                # Count hypotheses that don't have protocols
+                all_protocols = db.experimental_protocols.get_all()
+                protocol_hypothesis_ids = set(p.hypothesis_id for p in all_protocols)
+                
+                all_hypotheses = db.get_hypotheses_for_goal(research_goal.id)
+                reviewed_hypotheses = [h for h in all_hypotheses if h.status in ["reviewed", "accepted"]]
+                
+                hypotheses_without_protocols = sum(1 for h in reviewed_hypotheses if h.id not in protocol_hypothesis_ids)
+        except Exception as e:
+            logger.warning(f"Error checking protocol status: {e}")
+            
+        protocol_need_text = ""
+        if hypotheses_without_protocols > 0:
+            protocol_need_text = f"There are {hypotheses_without_protocols} reviewed hypotheses that don't have experimental protocols. Experimental protocols should be prioritized.\n\n"
+        
         # Build the prompt
         prompt = f"""
         You are the Supervisor agent responsible for allocating computational resources and prioritizing tasks for specialized agents in the Co-Scientist system.
@@ -206,10 +231,11 @@ class SupervisorAgent(BaseAgent):
         {feedback_text}
         {focus_text}
         {user_hypotheses_text}
+        {protocol_need_text}
         
         The Co-Scientist system has the following specialized agents:
-        1. Generation agent: Generates novel research hypotheses
-        2. Reflection agent: Reviews and evaluates hypotheses
+        1. Generation agent: Generates novel research hypotheses and experimental protocols
+        2. Reflection agent: Reviews and evaluates hypotheses and experimental protocols
         3. Ranking agent: Conducts tournaments to rank hypotheses
         4. Proximity agent: Calculates similarity between hypotheses
         5. Evolution agent: Improves existing hypotheses
@@ -227,6 +253,7 @@ class SupervisorAgent(BaseAgent):
             "proximity": 0.0-1.0,
             "evolution": 0.0-1.0,
             "meta_review": 0.0-1.0,
+            "protocol_generation": 0.0-1.0,
             "rationale": "Explanation for the weights assigned"
         }}
         ```
@@ -241,6 +268,8 @@ class SupervisorAgent(BaseAgent):
         - If there are user-submitted hypotheses, prioritize the Reflection and Ranking agents to evaluate them
         - If there are active research focus areas, prioritize Generation and Evolution agents to explore those areas
         - If there is recent user feedback, adjust weights to address the feedback appropriately
+        - If there are reviewed hypotheses without experimental protocols, allocate resources to protocol generation
+        - Protocol generation (performed by the Generation agent) should be prioritized after hypotheses have been reviewed and ranked
         
         The weights should sum to approximately 1.0 and reflect your judgment of how to allocate resources for the next iteration.
         """
@@ -267,7 +296,8 @@ class SupervisorAgent(BaseAgent):
                 "ranking": float(data["ranking"]),
                 "proximity": float(data["proximity"]),
                 "evolution": float(data["evolution"]),
-                "meta_review": float(data["meta_review"])
+                "meta_review": float(data["meta_review"]),
+                "protocol_generation": float(data.get("protocol_generation", 0.0))
             }
             
             # Normalize the weights to ensure they sum to 1.0
@@ -291,42 +321,46 @@ class SupervisorAgent(BaseAgent):
             if num_hypotheses < 10:
                 # Early phase: focus on generation
                 weights = {
-                    "generation": 0.7,
+                    "generation": 0.65,
                     "reflection": 0.2,
                     "ranking": 0.05,
                     "proximity": 0.0,
                     "evolution": 0.0,
-                    "meta_review": 0.05
+                    "meta_review": 0.05,
+                    "protocol_generation": 0.05
                 }
             elif num_reviews < num_hypotheses * 0.5:
                 # Middle phase: focus on review
                 weights = {
-                    "generation": 0.3,
-                    "reflection": 0.5,
+                    "generation": 0.25,
+                    "reflection": 0.45,
                     "ranking": 0.1,
                     "proximity": 0.05,
                     "evolution": 0.0,
-                    "meta_review": 0.05
+                    "meta_review": 0.05,
+                    "protocol_generation": 0.1
                 }
             elif num_matches < 20:
                 # Tournament phase: focus on ranking
                 weights = {
                     "generation": 0.1,
                     "reflection": 0.2,
-                    "ranking": 0.4,
+                    "ranking": 0.3,
                     "proximity": 0.1,
                     "evolution": 0.1,
-                    "meta_review": 0.1
+                    "meta_review": 0.1,
+                    "protocol_generation": 0.1
                 }
             else:
-                # Late phase: focus on evolution and meta-review
+                # Late phase: focus on evolution, protocols, and meta-review
                 weights = {
                     "generation": 0.1,
                     "reflection": 0.1,
-                    "ranking": 0.2,
-                    "proximity": 0.1,
-                    "evolution": 0.3,
-                    "meta_review": 0.2
+                    "ranking": 0.15,
+                    "proximity": 0.05,
+                    "evolution": 0.25,
+                    "meta_review": 0.15,
+                    "protocol_generation": 0.2
                 }
             
             return weights

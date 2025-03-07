@@ -1,5 +1,5 @@
 """
-Reflection Agent for reviewing and evaluating hypotheses.
+Reflection Agent for reviewing and evaluating hypotheses and experimental protocols.
 """
 
 import json
@@ -8,14 +8,22 @@ from typing import Dict, List, Any, Optional, Tuple
 
 from .base_agent import BaseAgent
 from ..config.config import SystemConfig
-from ..core.models import Hypothesis, Review, ReviewType, ResearchGoal, Citation
+from ..core.models import Hypothesis, Review, ReviewType, ResearchGoal, Citation, ExperimentalProtocol
 from ..tools.web_search import WebSearchTool, ScientificLiteratureSearch
 
 logger = logging.getLogger("co_scientist")
 
 class ReflectionAgent(BaseAgent):
     """
-    Agent responsible for reviewing and evaluating hypotheses.
+    Agent responsible for reviewing and evaluating hypotheses and experimental protocols.
+    
+    This agent can:
+    1. Perform initial reviews of hypotheses without external tools
+    2. Perform comprehensive reviews with literature search integration
+    3. Conduct deep verification reviews by decomposing hypotheses into assumptions
+    4. Evaluate experimental observations related to hypotheses
+    5. Perform step-by-step simulation reviews 
+    6. Review experimental protocols for feasibility and scientific rigor
     """
     
     def __init__(self, config: SystemConfig):
@@ -983,6 +991,219 @@ class ReflectionAgent(BaseAgent):
                 critiques=["Error parsing review"],
                 strengths=[],
                 improvement_suggestions=[]
+            )
+            
+            return review
+            
+    async def review_protocol(self, 
+                        protocol: ExperimentalProtocol, 
+                        hypothesis: Hypothesis,
+                        research_goal: ResearchGoal) -> Review:
+        """
+        Review an experimental protocol for scientific rigor, feasibility, and alignment with the hypothesis.
+        
+        Args:
+            protocol (ExperimentalProtocol): The protocol to review.
+            hypothesis (Hypothesis): The hypothesis the protocol aims to test.
+            research_goal (ResearchGoal): The research goal.
+            
+        Returns:
+            Review: The protocol review.
+        """
+        logger.info(f"Reviewing experimental protocol {protocol.id} for hypothesis {hypothesis.id}")
+        
+        # Perform literature search if scientific literature search is enabled
+        literature_context = ""
+        if self.literature_search:
+            # Search for experimental methods related to the protocol
+            query = f"{protocol.title} experimental methods techniques {hypothesis.title}"
+            search_result = await self.literature_search.search_with_citations(query, max_results=3)
+            
+            # Extract results and citations
+            search_results = search_result.get("results", [])
+            
+            if search_results:
+                # Format the literature context
+                literature_sources = "\n\n".join([
+                    f"Source {i+1}: {result.get('title', 'Untitled')}\n"
+                    f"URL: {result.get('url', 'No URL')}\n"
+                    f"Summary: {result.get('snippet', 'No snippet available')}"
+                    for i, result in enumerate(search_results)
+                ])
+                
+                literature_context = f"""
+                ## Relevant Experimental Literature
+                Use these sources to inform your assessment of the protocol:
+                
+                {literature_sources}
+                """
+        
+        # Build the prompt
+        prompt = f"""
+        You are reviewing an experimental protocol designed to test a scientific hypothesis. Your task is to evaluate 
+        the protocol for scientific rigor, feasibility, and its ability to effectively test the hypothesis.
+
+        Research Goal:
+        {research_goal.text}
+        
+        Hypothesis to Test:
+        Title: {hypothesis.title}
+        Summary: {hypothesis.summary}
+        Description: {hypothesis.description}
+        
+        Experimental Protocol to Review:
+        Title: {protocol.title}
+        Description: {protocol.description}
+        
+        Steps:
+        {chr(10).join(['- ' + step for step in protocol.steps])}
+        
+        Materials:
+        {chr(10).join(['- ' + material for material in protocol.materials])}
+        
+        Equipment:
+        {chr(10).join(['- ' + equipment for equipment in protocol.equipment])}
+        
+        Expected Results:
+        {protocol.expected_results}
+        
+        Limitations:
+        {chr(10).join(['- ' + limitation for limitation in protocol.limitations])}
+        
+        {literature_context}
+        
+        Please evaluate the protocol on the following criteria:
+        1. Scientific Rigor: Does the protocol follow sound scientific principles? Does it include proper controls?
+        2. Feasibility: Is the protocol practically feasible? Are the methods, materials, and equipment readily available?
+        3. Alignment: Does the protocol directly test the key aspects of the hypothesis?
+        4. Clarity: Are the steps clear, detailed, and reproducible?
+        5. Analysis: Is the approach to data analysis appropriate?
+        
+        For each criterion, provide a score from 0-10 and a detailed justification.
+        
+        Also provide:
+        - Key strengths of the protocol
+        - Areas for improvement
+        - Specific suggestions to enhance the protocol
+        - Overall assessment
+        
+        Format your response as a JSON object with the following structure:
+        
+        ```json
+        {{
+            "rigor_score": 0-10,
+            "rigor_justification": "Your justification...",
+            "feasibility_score": 0-10,
+            "feasibility_justification": "Your justification...",
+            "alignment_score": 0-10,
+            "alignment_justification": "Your justification...",
+            "clarity_score": 0-10,
+            "clarity_justification": "Your justification...",
+            "analysis_score": 0-10,
+            "analysis_justification": "Your justification...",
+            "strengths": ["Strength 1", "Strength 2", ...],
+            "areas_for_improvement": ["Area 1", "Area 2", ...],
+            "suggestions": ["Suggestion 1", "Suggestion 2", ...],
+            "overall_assessment": "Your overall assessment..."
+        }}
+        ```
+        """
+        
+        # Generate review
+        response = await self.generate(prompt)
+        
+        # Extract the JSON from the response
+        try:
+            # Find JSON content between backticks or at the start/end of the response
+            json_content = response
+            if "```json" in response:
+                json_content = response.split("```json")[1].split("```")[0].strip()
+            elif "```" in response:
+                json_content = response.split("```")[1].split("```")[0].strip()
+                
+            # Parse the JSON
+            data = json.loads(json_content)
+            
+            # Calculate overall score as average of individual scores
+            overall_score = (
+                data["rigor_score"] + 
+                data["feasibility_score"] + 
+                data["alignment_score"] + 
+                data["clarity_score"] + 
+                data["analysis_score"]
+            ) / 5.0
+            
+            # Build the review text
+            review_text = f"""
+            # Review of Experimental Protocol: {protocol.title}
+            
+            ## Scientific Rigor (Score: {data["rigor_score"]}/10)
+            {data["rigor_justification"]}
+            
+            ## Feasibility (Score: {data["feasibility_score"]}/10)
+            {data["feasibility_justification"]}
+            
+            ## Alignment with Hypothesis (Score: {data["alignment_score"]}/10)
+            {data["alignment_justification"]}
+            
+            ## Clarity (Score: {data["clarity_score"]}/10)
+            {data["clarity_justification"]}
+            
+            ## Analysis Approach (Score: {data["analysis_score"]}/10)
+            {data["analysis_justification"]}
+            
+            ## Key Strengths
+            {chr(10).join(['- ' + s for s in data["strengths"]])}
+            
+            ## Areas for Improvement
+            {chr(10).join(['- ' + a for a in data["areas_for_improvement"]])}
+            
+            ## Suggestions
+            {chr(10).join(['- ' + s for s in data["suggestions"]])}
+            
+            ## Overall Assessment
+            {data["overall_assessment"]}
+            """
+            
+            # Create the review
+            review = Review(
+                hypothesis_id=hypothesis.id,  # Link to the hypothesis being tested
+                review_type=ReviewType.FULL,  # Using FULL type for protocol reviews
+                reviewer="reflection",
+                text=review_text,
+                overall_score=overall_score,
+                critiques=data["areas_for_improvement"],
+                strengths=data["strengths"],
+                improvement_suggestions=data["suggestions"],
+                metadata={
+                    "protocol_id": protocol.id,
+                    "rigor_score": data["rigor_score"],
+                    "feasibility_score": data["feasibility_score"],
+                    "alignment_score": data["alignment_score"],
+                    "clarity_score": data["clarity_score"],
+                    "analysis_score": data["analysis_score"],
+                    "review_target": "protocol"
+                }
+            )
+            
+            logger.info(f"Completed review of protocol {protocol.id} with overall score {overall_score:.2f}")
+            return review
+            
+        except Exception as e:
+            logger.error(f"Error parsing protocol review from response: {e}")
+            logger.debug(f"Response: {response}")
+            
+            # Create a basic review in case of parsing error
+            review = Review(
+                hypothesis_id=hypothesis.id,
+                review_type=ReviewType.FULL,
+                reviewer="reflection",
+                text=f"Error parsing protocol review: {str(e)}\n\nRaw response:\n{response}",
+                overall_score=5.0,
+                critiques=["Error parsing review"],
+                strengths=[],
+                improvement_suggestions=[],
+                metadata={"protocol_id": protocol.id, "review_target": "protocol"}
             )
             
             return review

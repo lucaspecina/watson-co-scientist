@@ -110,6 +110,7 @@ class CoScientistSystem:
             "num_hypotheses": 0,
             "num_reviews": 0,
             "num_tournament_matches": 0,
+            "num_protocols": 0,
             "top_hypotheses": [],
             "iterations_completed": 0,
             "last_research_overview_id": None
@@ -117,12 +118,13 @@ class CoScientistSystem:
         
         # Initialize agent weights
         self.agent_weights = {
-            "generation": 0.7,
+            "generation": 0.65,
             "reflection": 0.2,
             "ranking": 0.05,
             "proximity": 0.0,
             "evolution": 0.0,
-            "meta_review": 0.05
+            "meta_review": 0.05,
+            "protocol_generation": 0.05
         }
         
         logger.info(f"Initialized system for research goal {self.current_research_goal.id}")
@@ -156,6 +158,12 @@ class CoScientistSystem:
             hypotheses_to_review = unreviewed_hypotheses[:num_to_review]
             for hypothesis in hypotheses_to_review:
                 tasks.append(self._review_hypothesis(hypothesis))
+                
+            # Also review protocols if we have any
+            unreviewed_protocols = self._get_unreviewed_protocols()
+            num_protocols_to_review = min(len(unreviewed_protocols), int(self.agent_weights["reflection"] * 2))
+            for protocol_data in unreviewed_protocols[:num_protocols_to_review]:
+                tasks.append(self._review_protocol(protocol_data["protocol"], protocol_data["hypothesis"]))
         
         # Ranking
         if self.agent_weights["ranking"] > 0.05:
@@ -170,6 +178,12 @@ class CoScientistSystem:
             num_to_evolve = int(self.agent_weights["evolution"] * 3)
             for _ in range(num_to_evolve):
                 tasks.append(self._evolve_hypothesis())
+        
+        # Protocol Generation
+        if self.agent_weights["protocol_generation"] > 0.05:
+            num_to_generate = int(self.agent_weights["protocol_generation"] * 3)
+            for _ in range(num_to_generate):
+                tasks.append(self._generate_protocol())
         
         # Meta-review
         if self.agent_weights["meta_review"] > 0.05:
@@ -193,6 +207,9 @@ class CoScientistSystem:
         
         # Update tournament matches count
         self.current_state["num_tournament_matches"] = len(self.db.tournament_matches.get_all())
+        
+        # Update protocols count
+        self.current_state["num_protocols"] = len(self.db.experimental_protocols.get_all())
         
         # Update top hypotheses
         all_hypotheses = self.db.hypotheses.get_all()
@@ -309,6 +326,47 @@ class CoScientistSystem:
                     print(f"  {i}. {area.get('name', '')}")
                     print(f"     {area.get('description', '')[:100]}...")
                 
+            elif user_input == "protocols":
+                # List experimental protocols
+                if not self.current_research_goal:
+                    print("No research goal set. Please set a goal first.")
+                    continue
+                
+                # Get all protocols
+                protocols = self.db.experimental_protocols.get_all()
+                
+                if not protocols:
+                    print("No experimental protocols have been generated yet.")
+                    continue
+                
+                print("\n============ EXPERIMENTAL PROTOCOLS ============")
+                for i, protocol in enumerate(protocols, 1):
+                    # Get the hypothesis for this protocol
+                    hypothesis = self.db.hypotheses.get(protocol.hypothesis_id)
+                    hypothesis_title = hypothesis.title if hypothesis else "Unknown hypothesis"
+                    
+                    # Get protocol reviews
+                    reviews = self.db.get_reviews_for_protocol(protocol.id)
+                    avg_score = sum(r.overall_score for r in reviews) / len(reviews) if reviews else "No reviews"
+                    
+                    print(f"{i}. {protocol.title}")
+                    print(f"   For hypothesis: {hypothesis_title}")
+                    print(f"   Average review score: {avg_score}")
+                    print(f"   Steps: {len(protocol.steps)}")
+                    print(f"   Materials: {len(protocol.materials)}")
+                    print(f"   Created: {protocol.created_at.strftime('%Y-%m-%d %H:%M')}")
+                    print()
+                
+            elif user_input == "generate-protocol":
+                # Generate a new protocol
+                if not self.current_research_goal:
+                    print("No research goal set. Please set a goal first.")
+                    continue
+                
+                print("Generating experimental protocol for a top hypothesis...")
+                await self._generate_protocol()
+                print("Protocol generation completed.")
+                
             else:
                 print("Unknown command. Type 'help' for a list of commands.")
     
@@ -319,6 +377,8 @@ class CoScientistSystem:
         print("  run [N]          - Run 1 or N iterations")
         print("  state            - Print the current state")
         print("  overview         - Generate and print a research overview")
+        print("  protocols        - Show generated experimental protocols")
+        print("  generate-protocol- Generate an experimental protocol for a top hypothesis")
         print("  help             - Print this help message")
         print("  exit             - Exit interactive mode")
     
@@ -334,6 +394,7 @@ class CoScientistSystem:
         print(f"Hypotheses generated: {self.current_state['num_hypotheses']}")
         print(f"Reviews completed: {self.current_state['num_reviews']}")
         print(f"Tournament matches: {self.current_state['num_tournament_matches']}")
+        print(f"Experimental protocols: {self.current_state['num_protocols']}")
         
         # Print top hypotheses
         if self.current_state['top_hypotheses']:
@@ -690,12 +751,29 @@ class CoScientistSystem:
             if meta_review and meta_review.metadata and "tournament_analysis" in meta_review.metadata:
                 tournament_analysis = meta_review.metadata["tournament_analysis"]
                 
+            # Get protocols for analysis
+            all_protocols = self.db.experimental_protocols.get_all()
+            
+            # Create dictionary of hypotheses by ID
+            all_hypotheses = self.db.hypotheses.get_all()
+            hypotheses_dict = {h.id: h for h in all_hypotheses}
+            
+            # Get protocol analysis if we have protocols
+            protocol_analysis = None
+            if all_protocols:
+                protocol_analysis = await self.meta_review.analyze_protocols(
+                    all_protocols,
+                    hypotheses_dict,
+                    self.current_research_goal
+                )
+                
             # Generate research overview
             overview = await self.meta_review.generate_research_overview(
                 self.current_research_goal,
                 top_hypotheses,
                 meta_review,
-                tournament_analysis
+                tournament_analysis,
+                protocol_analysis
             )
             
             # Save research overview to database
@@ -710,6 +788,113 @@ class CoScientistSystem:
         except Exception as e:
             logger.error(f"Error generating research overview: {e}", exc_info=True)
             return None
+    
+    async def _generate_protocol(self) -> None:
+        """Generate an experimental protocol for a high-ranking hypothesis."""
+        try:
+            # Get hypotheses that need protocols
+            hypotheses_needing_protocols = self.db.get_hypotheses_needing_protocols(
+                self.current_research_goal.id, 
+                limit=5
+            )
+            
+            if not hypotheses_needing_protocols:
+                logger.info("No hypotheses need experimental protocols at this time")
+                
+                # If no hypotheses need protocols, maybe generate a hypothesis with a protocol
+                if random.random() < 0.3:
+                    hypothesis, protocol = await self.generation.generate_hypothesis_with_protocol(
+                        self.current_research_goal
+                    )
+                    
+                    if hypothesis and protocol:
+                        self.db.hypotheses.save(hypothesis)
+                        self.db.experimental_protocols.save(protocol)
+                        logger.info(f"Generated new hypothesis {hypothesis.id} with integrated protocol {protocol.id}")
+                    
+                return
+                
+            # Choose a hypothesis, weighted by rating
+            ratings = [h.elo_rating for h in hypotheses_needing_protocols]
+            total_rating = sum(ratings)
+            if total_rating > 0:
+                probs = [r / total_rating for r in ratings]
+                hypothesis = random.choices(hypotheses_needing_protocols, weights=probs, k=1)[0]
+            else:
+                hypothesis = random.choice(hypotheses_needing_protocols)
+            
+            # Generate protocol
+            protocol = await self.generation.generate_experimental_protocol(
+                hypothesis, 
+                self.current_research_goal
+            )
+            
+            if protocol:
+                # Save protocol to database
+                self.db.experimental_protocols.save(protocol)
+                logger.info(f"Generated experimental protocol {protocol.id} for hypothesis {hypothesis.id}")
+            else:
+                logger.warning(f"Failed to generate protocol for hypothesis {hypothesis.id}")
+                
+        except Exception as e:
+            logger.error(f"Error generating experimental protocol: {e}", exc_info=True)
+            
+    async def _review_protocol(self, protocol: ExperimentalProtocol, hypothesis: Hypothesis) -> None:
+        """
+        Review an experimental protocol.
+        
+        Args:
+            protocol (ExperimentalProtocol): The protocol to review.
+            hypothesis (Hypothesis): The hypothesis the protocol is testing.
+        """
+        try:
+            # Generate the protocol review
+            review = await self.reflection.review_protocol(
+                protocol,
+                hypothesis,
+                self.current_research_goal
+            )
+            
+            # Save the review to the database
+            self.db.reviews.save(review)
+            
+            logger.info(f"Reviewed protocol {protocol.id} for hypothesis {hypothesis.id}")
+            
+        except Exception as e:
+            logger.error(f"Error reviewing protocol {protocol.id}: {e}", exc_info=True)
+            
+    def _get_unreviewed_protocols(self) -> List[Dict[str, Any]]:
+        """
+        Get protocols that have not been reviewed.
+        
+        Returns:
+            List[Dict[str, Any]]: List of dictionaries with protocol and corresponding hypothesis.
+        """
+        try:
+            all_protocols = self.db.experimental_protocols.get_all()
+            result = []
+            
+            for protocol in all_protocols:
+                # Check if this protocol has any reviews
+                protocol_reviews = self.db.get_reviews_for_protocol(protocol.id)
+                
+                if not protocol_reviews:
+                    # This protocol hasn't been reviewed - get the hypothesis
+                    hypothesis = self.db.hypotheses.get(protocol.hypothesis_id)
+                    
+                    if hypothesis:
+                        result.append({
+                            "protocol": protocol,
+                            "hypothesis": hypothesis
+                        })
+            
+            # Sort by creation time (newest first)
+            result.sort(key=lambda x: x["protocol"].created_at, reverse=True)
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error getting unreviewed protocols: {e}")
+            return []
     
     def _get_unreviewed_hypotheses(self) -> List[Hypothesis]:
         """

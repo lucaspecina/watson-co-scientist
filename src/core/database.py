@@ -445,6 +445,65 @@ class Database:
                 
         return direct_citations
         
+    def get_protocols_for_hypothesis(self, hypothesis_id: str) -> List[ExperimentalProtocol]:
+        """
+        Get all experimental protocols for a hypothesis.
+        
+        Args:
+            hypothesis_id (str): The ID of the hypothesis.
+            
+        Returns:
+            List[ExperimentalProtocol]: The experimental protocols.
+        """
+        return [
+            p for p in self.experimental_protocols.get_all()
+            if p.hypothesis_id == hypothesis_id
+        ]
+        
+    def get_hypotheses_needing_protocols(self, research_goal_id: str, limit: int = 5) -> List[Hypothesis]:
+        """
+        Get hypotheses that don't have experimental protocols yet.
+        
+        Args:
+            research_goal_id (str): The ID of the research goal.
+            limit (int): Maximum number of hypotheses to return.
+            
+        Returns:
+            List[Hypothesis]: Hypotheses without protocols.
+        """
+        # Get all hypotheses for the research goal
+        hypotheses = self.get_hypotheses_for_goal(research_goal_id)
+        
+        # Get all protocol hypothesis IDs
+        protocols = self.experimental_protocols.get_all()
+        protocol_hypothesis_ids = set(p.hypothesis_id for p in protocols)
+        
+        # Filter hypotheses without protocols that have been reviewed
+        hypotheses_without_protocols = [
+            h for h in hypotheses 
+            if h.id not in protocol_hypothesis_ids 
+            and h.status in ["reviewed", "accepted"]
+        ]
+        
+        # Sort by Elo rating (highest first) and apply limit
+        hypotheses_without_protocols.sort(key=lambda h: h.elo_rating, reverse=True)
+        return hypotheses_without_protocols[:limit]
+        
+    def get_reviews_for_protocol(self, protocol_id: str) -> List[Review]:
+        """
+        Get all reviews for a protocol.
+        
+        Args:
+            protocol_id (str): The ID of the protocol.
+            
+        Returns:
+            List[Review]: The reviews.
+        """
+        return [
+            r for r in self.reviews.get_all()
+            if r.metadata.get("protocol_id") == protocol_id
+        ]
+        
     def add_citation_to_hypothesis(self, hypothesis_id: str, citation: Citation) -> bool:
         """
         Add a citation to a hypothesis.
