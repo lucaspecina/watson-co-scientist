@@ -20,7 +20,8 @@ from .models import (
     TournamentMatch, 
     ResearchOverview,
     MetaReview,
-    HypothesisStatus
+    HypothesisStatus,
+    HypothesisSource
 )
 from ..config.config import load_config, SystemConfig
 from ..agents.supervisor_agent import SupervisorAgent
@@ -49,6 +50,9 @@ class CoScientistSystem:
         
         # Initialize database
         self.db = Database(data_dir)
+        
+        # Store a reference to this system in the config for agent access
+        self.config.system = self
         
         # Initialize agents
         self.supervisor = SupervisorAgent(self.config)
@@ -710,11 +714,23 @@ class CoScientistSystem:
     def _get_unreviewed_hypotheses(self) -> List[Hypothesis]:
         """
         Get hypotheses that have not been reviewed.
+        Prioritizes user-submitted hypotheses first, followed by system-generated ones.
         
         Returns:
-            List[Hypothesis]: Unreviewed hypotheses.
+            List[Hypothesis]: Unreviewed hypotheses, prioritized by source and creation time.
         """
         all_hypotheses = self.db.hypotheses.get_all()
         unreviewed = [h for h in all_hypotheses if h.status == HypothesisStatus.GENERATED]
         
-        return unreviewed
+        # Separate user-submitted and system-generated hypotheses
+        user_hypotheses = [h for h in unreviewed if h.source == HypothesisSource.USER]
+        system_hypotheses = [h for h in unreviewed if h.source != HypothesisSource.USER]
+        
+        # Sort user hypotheses by creation time (newest first)
+        user_hypotheses.sort(key=lambda h: h.created_at, reverse=True)
+        
+        # Sort system hypotheses by creation time
+        system_hypotheses.sort(key=lambda h: h.created_at)
+        
+        # Return prioritized list: user hypotheses first, then system hypotheses
+        return user_hypotheses + system_hypotheses

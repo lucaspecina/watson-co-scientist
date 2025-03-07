@@ -36,9 +36,14 @@ class SystemConfig(BaseModel):
     default_model: str = Field(..., description="Default model to use")
     agents: Dict[str, AgentConfig] = Field(..., description="Agent configurations")
     web_search_enabled: bool = Field(True, description="Whether web search is enabled")
+    web_search_provider: str = Field("tavily", description="Web search provider to use (tavily, bing, serper)")
     web_search_api_key: Optional[str] = Field(None, description="API key for web search")
     tournament_iterations: int = Field(5, description="Number of iterations for tournaments")
     max_hypotheses: int = Field(100, description="Maximum number of hypotheses to generate")
+    literature_search_depth: int = Field(5, description="Number of literature results to fetch per query")
+    
+    # Add dynamic attributes for runtime use
+    model_config = {"extra": "allow"}
     
 def load_default_config() -> Dict[str, Any]:
     """
@@ -107,9 +112,11 @@ def load_default_config() -> Dict[str, Any]:
             }
         },
         "web_search_enabled": True,
-        "web_search_api_key": os.environ.get("BING_SEARCH_API_KEY"),
+        "web_search_provider": "tavily",
+        "web_search_api_key": os.environ.get("TAVILY_API_KEY") or os.environ.get("BING_SEARCH_API_KEY"),
         "tournament_iterations": 5,
-        "max_hypotheses": 100
+        "max_hypotheses": 100,
+        "literature_search_depth": 5
     }
     
     return default_config

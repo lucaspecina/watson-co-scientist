@@ -135,6 +135,61 @@ class SupervisorAgent(BaseAgent):
         """
         logger.info(f"Planning task allocation for research goal {research_goal.id}")
         
+        # Get user feedback and research focus areas
+        recent_feedback = []
+        active_focus_areas = []
+        user_hypotheses_count = 0
+        
+        try:
+            # Access system data safely through class-level attributes
+            from ..core.system import CoScientistSystem
+            
+            # Find the system instance
+            system = None
+            # If this module has a global 'system' variable
+            import sys
+            main_module = sys.modules.get('__main__')
+            if main_module and hasattr(main_module, 'system') and isinstance(main_module.system, CoScientistSystem):
+                system = main_module.system
+            
+            # Get database access
+            db = system.db if system else None
+            
+            if db:
+                # Get recent user feedback
+                recent_feedback = db.get_user_feedback(research_goal.id, limit=5)
+                
+                # Get active research focus areas
+                active_focus_areas = db.get_active_research_focus(research_goal.id)
+                
+                # Count user-submitted hypotheses
+                all_hypotheses = db.hypotheses.get_all()
+                user_hypotheses_count = sum(1 for h in all_hypotheses if getattr(h, 'source', '') == 'user' and 
+                                           h.metadata.get("research_goal_id") == research_goal.id)
+        except Exception as e:
+            logger.warning(f"Error fetching user data for task allocation: {e}")
+        
+        # Format user data for the prompt
+        feedback_text = ""
+        if recent_feedback:
+            feedback_text = "Recent User Feedback:\n"
+            for i, feedback in enumerate(recent_feedback, 1):
+                feedback_text += f"{i}. Type: {feedback.feedback_type}, User: {feedback.user_id}\n"
+                feedback_text += f"   {feedback.text}\n\n"
+        
+        focus_text = ""
+        if active_focus_areas:
+            focus_text = "Active Research Focus Areas:\n"
+            for i, focus in enumerate(active_focus_areas, 1):
+                focus_text += f"{i}. Title: {focus.title}, Priority: {focus.priority}\n"
+                focus_text += f"   {focus.description}\n"
+                if focus.keywords:
+                    focus_text += f"   Keywords: {', '.join(focus.keywords)}\n\n"
+        
+        user_hypotheses_text = ""
+        if user_hypotheses_count > 0:
+            user_hypotheses_text = f"There are {user_hypotheses_count} user-submitted hypotheses that need to be evaluated.\n\n"
+        
         # Build the prompt
         prompt = f"""
         You are the Supervisor agent responsible for allocating computational resources and prioritizing tasks for specialized agents in the Co-Scientist system.
@@ -148,6 +203,10 @@ class SupervisorAgent(BaseAgent):
         Current System State:
         {json.dumps(current_state, indent=2)}
         
+        {feedback_text}
+        {focus_text}
+        {user_hypotheses_text}
+        
         The Co-Scientist system has the following specialized agents:
         1. Generation agent: Generates novel research hypotheses
         2. Reflection agent: Reviews and evaluates hypotheses
@@ -156,7 +215,7 @@ class SupervisorAgent(BaseAgent):
         5. Evolution agent: Improves existing hypotheses
         6. Meta-review agent: Synthesizes insights from reviews and tournaments
         
-        Based on the current state and research goal, your task is to allocate computational resources (expressed as weights from 0.0 to 1.0) to each agent for the next iteration.
+        Based on the current state, research goal, and user input, your task is to allocate computational resources (expressed as weights from 0.0 to 1.0) to each agent for the next iteration.
         
         Format your response as a JSON object with the following structure:
         
@@ -179,6 +238,9 @@ class SupervisorAgent(BaseAgent):
         - After several tournaments, prioritize the Evolution agent to improve top hypotheses
         - The Proximity agent is useful periodically to organize hypotheses
         - The Meta-review agent is more valuable later in the process
+        - If there are user-submitted hypotheses, prioritize the Reflection and Ranking agents to evaluate them
+        - If there are active research focus areas, prioritize Generation and Evolution agents to explore those areas
+        - If there is recent user feedback, adjust weights to address the feedback appropriately
         
         The weights should sum to approximately 1.0 and reflect your judgment of how to allocate resources for the next iteration.
         """

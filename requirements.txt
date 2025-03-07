@@ -6,10 +6,11 @@ pytest==7.4.3
 rich==13.6.0
 tiktoken==0.5.1
 requests==2.31.0
-python-dotenv==1.0.1
 httpx==0.26.0
 fastapi==0.109.2
 uvicorn==0.25.0
 langchain==0.1.6
 langchain-openai==0.0.5
 langchain-community==0.0.16
+beautifulsoup4==4.12.2
+tavily-python==0.5.1

@@ -9,7 +9,14 @@ from typing import Dict, List, Any, Optional, Tuple
 
 from .base_agent import BaseAgent
 from ..config.config import SystemConfig
-from ..core.models import Hypothesis, ResearchGoal, Review
+from ..core.models import (
+    Hypothesis, 
+    ResearchGoal, 
+    Review, 
+    HypothesisSource, 
+    HypothesisStatus, 
+    ResearchFocus
+)
 from ..tools.web_search import WebSearchTool
 
 logger = logging.getLogger("co_scientist")
@@ -63,9 +70,46 @@ class EvolutionAgent(BaseAgent):
             {review_text}
             """
         
+        # Check for active research focus areas
+        focus_areas = []
+        try:
+            # Access system data safely through class-level attributes
+            from ..core.system import CoScientistSystem
+            
+            # Find the system instance
+            system = None
+            # If this module has a global 'system' variable
+            import sys
+            main_module = sys.modules.get('__main__')
+            if main_module and hasattr(main_module, 'system') and isinstance(main_module.system, CoScientistSystem):
+                system = main_module.system
+            
+            # Get database access
+            db = system.db if system else None
+            
+            if db:
+                focus_areas = db.get_active_research_focus(research_goal.id)
+        except Exception as e:
+            logger.warning(f"Error fetching research focus areas: {e}")
+            
+        # Prepare focus area context
+        focus_context = ""
+        if focus_areas:
+            focus_text = "\n\n".join([
+                f"Focus Area {i+1}:\nTitle: {focus.title}\nDescription: {focus.description}\nKeywords: {', '.join(focus.keywords)}\nPriority: {focus.priority}"
+                for i, focus in enumerate(focus_areas)
+            ])
+            
+            focus_context = f"""
+            Active Research Focus Areas:
+            {focus_text}
+            
+            IMPORTANT: Consider these research focus areas in your improvements, especially those with higher priority.
+            """
+
         # Build the prompt
         prompt = f"""
-        You are improving an existing scientific hypothesis based on the research goal and previous reviews.
+        You are improving an existing scientific hypothesis based on the research goal, previous reviews, and active research focus areas.
         
         Research Goal:
         {research_goal.text}
@@ -78,12 +122,15 @@ class EvolutionAgent(BaseAgent):
         
         {review_context}
         
+        {focus_context}
+        
         Your task is to create an improved version of this hypothesis that:
         1. Addresses any weaknesses or critiques from the reviews
         2. Maintains or enhances the strengths identified in reviews
         3. Makes the hypothesis more precise, testable, and aligned with the research goal
         4. Incorporates additional relevant scientific principles or evidence
         5. Improves the clarity and coherence of the hypothesis
+        6. When possible, aligns with or addresses the active research focus areas
         
         Do not simply tweak the hypothesis; make substantive improvements while preserving the core idea.
         
@@ -123,6 +170,7 @@ class EvolutionAgent(BaseAgent):
                 summary=data["summary"],
                 supporting_evidence=data["supporting_evidence"],
                 creator="evolution",
+                source=HypothesisSource.EVOLVED,
                 parent_hypotheses=[hypothesis.id],
                 metadata={
                     "research_goal_id": research_goal.id,
@@ -227,6 +275,7 @@ class EvolutionAgent(BaseAgent):
                 summary=data["summary"],
                 supporting_evidence=data["supporting_evidence"],
                 creator="evolution_combine",
+                source=HypothesisSource.COMBINED,
                 parent_hypotheses=[h.id for h in hypotheses],
                 metadata={
                     "research_goal_id": research_goal.id,
@@ -329,6 +378,7 @@ class EvolutionAgent(BaseAgent):
                 summary=data["summary"],
                 supporting_evidence=data["supporting_evidence"],
                 creator="evolution_out_of_box",
+                source=HypothesisSource.EVOLVED,
                 tags={"out_of_box", "creative"},
                 metadata={
                     "research_goal_id": research_goal.id,
@@ -351,6 +401,7 @@ class EvolutionAgent(BaseAgent):
                 summary="Error parsing generated hypothesis.",
                 supporting_evidence=["Error during generation"],
                 creator="evolution_out_of_box",
+                source=HypothesisSource.EVOLVED,
                 tags={"out_of_box", "error"},
                 metadata={
                     "research_goal_id": research_goal.id,
@@ -433,6 +484,7 @@ class EvolutionAgent(BaseAgent):
                 summary=data["summary"],
                 supporting_evidence=data["supporting_evidence"],
                 creator="evolution_simplify",
+                source=HypothesisSource.EVOLVED,
                 parent_hypotheses=[hypothesis.id],
                 tags={"simplified"},
                 metadata={

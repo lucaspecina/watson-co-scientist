@@ -8,8 +8,8 @@ from typing import Dict, List, Any, Optional, Tuple
 
 from .base_agent import BaseAgent
 from ..config.config import SystemConfig
-from ..core.models import Hypothesis, Review, ReviewType, ResearchGoal
-from ..tools.web_search import WebSearchTool
+from ..core.models import Hypothesis, Review, ReviewType, ResearchGoal, Citation
+from ..tools.web_search import WebSearchTool, ScientificLiteratureSearch
 
 logger = logging.getLogger("co_scientist")
 
@@ -27,10 +27,16 @@ class ReflectionAgent(BaseAgent):
         """
         super().__init__("reflection", config)
         
-        # Initialize web search tool if enabled
+        # Initialize web search tools if enabled
         self.web_search = None
+        self.literature_search = None
         if config.web_search_enabled:
-            self.web_search = WebSearchTool(config.web_search_api_key)
+            # Set provider to "tavily" if available, otherwise use the default
+            provider = "tavily" if hasattr(config, "web_search_provider") else "bing"
+            api_key = config.web_search_api_key
+            
+            self.web_search = WebSearchTool(api_key=api_key, provider=provider)
+            self.literature_search = ScientificLiteratureSearch(api_key=api_key, provider=provider)
     
     async def initial_review(self, 
                          hypothesis: Hypothesis, 
@@ -200,18 +206,63 @@ class ReflectionAgent(BaseAgent):
         """
         logger.info(f"Performing full review of hypothesis {hypothesis.id}: {hypothesis.title}")
         
-        # Perform literature search if web search is enabled
+        # Check if hypothesis already has citations
+        existing_citations = []
+        for citation in hypothesis.citations:
+            if isinstance(citation, Citation):
+                existing_citations.append(citation)
+            elif isinstance(citation, str):
+                # We would need to fetch the citation object from database
+                # This would be implemented in a real system
+                pass
+        
+        # Prepare citation context from existing citations
+        citation_context = ""
+        if existing_citations:
+            citation_list = "\n".join([
+                f"- {citation.title} - {citation.url}"
+                for citation in existing_citations
+            ])
+            citation_context = f"\n## Existing Citations in Hypothesis\n{citation_list}\n"
+                    
+        # Perform literature search if scientific literature search is enabled
         literature_context = ""
-        if self.web_search:
-            # Search for literature related to the hypothesis
+        search_results = []
+        citations = []
+        
+        if self.literature_search:
+            # Prepare literature search query based on the hypothesis
             query = f"{hypothesis.title} {research_goal.text} scientific research"
-            search_results = await self.web_search.search(query, count=5)
+            
+            # Use the scientific literature search
+            search_result = await self.literature_search.search_with_citations(query, max_results=5)
+            
+            # Extract results and citations
+            search_results = search_result.get("results", [])
+            citations = search_result.get("citations", [])
             
             if search_results:
-                literature_context = "## Relevant Literature\n\n" + "\n\n".join([
-                    f"Title: {result['title']}\nURL: {result['url']}\nSummary: {result['snippet']}"
-                    for result in search_results
+                # Format the literature context
+                literature_sources = "\n\n".join([
+                    f"Source {i+1}: {result.get('title', 'Untitled')}\n"
+                    f"URL: {result.get('url', 'No URL')}\n"
+                    f"Summary: {result.get('snippet', 'No snippet available')}"
+                    for i, result in enumerate(search_results)
                 ])
+                
+                # Create a citation reference guide
+                citation_guide = "\n".join([
+                    f"[{i+1}] {citation.get('title', 'Untitled')} - {citation.get('url', 'No URL')}"
+                    for i, citation in enumerate(citations)
+                ])
+                
+                literature_context = f"""
+                ## Relevant Scientific Literature
+                {literature_sources}
+                
+                ## Available Citations
+                {citation_guide}
+                """
         
         # Build the prompt
         prompt = f"""
@@ -226,6 +277,7 @@ class ReflectionAgent(BaseAgent):
         Description: {hypothesis.description}
         Supporting Evidence: {', '.join(hypothesis.supporting_evidence)}
         
+        {citation_context}
         {literature_context}
         
         Evaluate the hypothesis thoroughly on the following criteria:
@@ -233,7 +285,7 @@ class ReflectionAgent(BaseAgent):
         2. Quality: Is the hypothesis well-formulated, specific, and testable? Does it make precise predictions?
         3. Novelty: Is this hypothesis truly novel? Does it extend beyond what is already known in the field? Cite specific literature if the hypothesis (or parts of it) have been previously proposed.
         4. Testability: Can the hypothesis be tested with current technology and methods? What experiments would be needed?
-        5. Ethics: Are there any ethical concerns with the hypothesis or its potential implementation?
+        5. Literature Grounding: Is the hypothesis well-grounded in existing literature? Does it cite relevant sources?
         
         For each criterion, provide a score from a 0-10 scale and a detailed justification based on scientific principles and literature.
         
@@ -255,16 +307,19 @@ class ReflectionAgent(BaseAgent):
             "novelty_justification": "Your detailed justification...",
             "testability_score": 0-10,
             "testability_justification": "Your detailed justification...",
-            "ethics_score": 0-10,
-            "ethics_justification": "Your detailed justification...",
+            "literature_grounding_score": 0-10,
+            "literature_grounding_justification": "Your detailed justification...",
             "strengths": ["Strength 1", "Strength 2", ...],
             "critiques": ["Critique 1", "Critique 2", ...],
             "improvement_suggestions": ["Suggestion 1", "Suggestion 2", ...],
             "overall_assessment": "Your detailed overall assessment...",
             "recommendation": "accept", "revise", or "reject",
+            "citation_ids": [1, 2, 3],
             "literature_references": ["Reference 1", "Reference 2", ...]
         }}
         ```
+        
+        If literature was provided, include the citation_ids of the most relevant citations (by number) that either support or refute the hypothesis.
         """
         
         # Generate review
@@ -288,8 +343,46 @@ class ReflectionAgent(BaseAgent):
                 data["quality_score"] + 
                 data["novelty_score"] + 
                 data["testability_score"] + 
-                data["ethics_score"]
+                data.get("literature_grounding_score", 5)  # Default to 5 if not provided
             ) / 5.0
+            
+            # Process citations if available
+            review_citations = []
+            citation_ids = data.get("citation_ids", [])
+            
+            if isinstance(citation_ids, list) and len(citations) > 0:
+                for cid in citation_ids:
+                    # Convert citation ID to 0-based index
+                    idx = int(cid) - 1
+                    if 0 <= idx < len(citations):
+                        citation_info = citations[idx]
+                        citation = Citation(
+                            title=citation_info.get("title", "Unknown"),
+                            url=citation_info.get("url", ""),
+                            authors=[],
+                            snippet=citation_info.get("snippet", ""),
+                            source="review_literature_search",
+                            publication_date=citation_info.get("publication_date", ""),
+                            metadata={
+                                "hypothesis_id": hypothesis.id,
+                                "citation_index": cid,
+                                "relevance": "review_citation"
+                            }
+                        )
+                        review_citations.append(citation)
+            
+            # Format cited references
+            cited_refs = []
+            for i, cid in enumerate(citation_ids):
+                idx = int(cid) - 1
+                if 0 <= idx < len(citations):
+                    citation_info = citations[idx]
+                    cited_refs.append(f"[{cid}] {citation_info.get('title', 'Unknown')} - {citation_info.get('url', '')}")
+            
+            # Add literature references that aren't in the citations
+            for ref in data.get("literature_references", []):
+                if not any(ref in cited_ref for cited_ref in cited_refs):
+                    cited_refs.append(ref)
             
             # Build the review text
             review_text = f"""
@@ -307,8 +400,8 @@ class ReflectionAgent(BaseAgent):
             ## Testability (Score: {data["testability_score"]}/10)
             {data["testability_justification"]}
             
-            ## Ethics (Score: {data["ethics_score"]}/10)
-            {data["ethics_justification"]}
+            ## Literature Grounding (Score: {data.get("literature_grounding_score", 5)}/10)
+            {data.get("literature_grounding_justification", "No assessment provided.")}
             
             ## Key Strengths
             {chr(10).join(['- ' + s for s in data["strengths"]])}
@@ -326,10 +419,10 @@ class ReflectionAgent(BaseAgent):
             {data["recommendation"].upper()}
             
             ## Literature References
-            {chr(10).join(['- ' + r for r in data.get("literature_references", [])])}
+            {chr(10).join(['- ' + r for r in cited_refs])}
             """
             
-            # Create the review
+            # Create the review with citations
             review = Review(
                 hypothesis_id=hypothesis.id,
                 review_type=ReviewType.FULL,
@@ -341,7 +434,11 @@ class ReflectionAgent(BaseAgent):
                 overall_score=overall_score,
                 critiques=data["critiques"],
                 strengths=data["strengths"],
-                improvement_suggestions=data["improvement_suggestions"]
+                improvement_suggestions=data["improvement_suggestions"],
+                metadata={
+                    "literature_grounding_score": data.get("literature_grounding_score", 5),
+                    "citation_ids": citation_ids
+                }
             )
             
             logger.info(f"Completed full review of hypothesis {hypothesis.id} with overall score {overall_score:.2f}")
@@ -554,6 +651,32 @@ class ReflectionAgent(BaseAgent):
         """
         logger.info(f"Performing observation review of hypothesis {hypothesis.id}: {hypothesis.title}")
         
+        # Perform literature search if scientific literature search is enabled
+        literature_context = ""
+        if self.literature_search:
+            # Search for experimental observations related to the hypothesis
+            query = f"{hypothesis.title} {research_goal.text} experimental evidence observations"
+            search_result = await self.literature_search.search_with_citations(query, max_results=5)
+            
+            # Extract results and format them for the prompt
+            search_results = search_result.get("results", [])
+            
+            if search_results:
+                # Format the literature context
+                literature_sources = "\n\n".join([
+                    f"Source {i+1}: {result.get('title', 'Untitled')}\n"
+                    f"URL: {result.get('url', 'No URL')}\n"
+                    f"Summary: {result.get('snippet', 'No snippet available')}"
+                    for i, result in enumerate(search_results)
+                ])
+                
+                literature_context = f"""
+                ## Relevant Experimental Literature
+                Use these sources to inform your thinking about relevant experimental observations:
+                
+                {literature_sources}
+                """
+        
         # Build the prompt
         prompt = f"""
         You are evaluating whether a scientific hypothesis can account for existing experimental observations and phenomena in the literature.
@@ -566,6 +689,8 @@ class ReflectionAgent(BaseAgent):
         Summary: {hypothesis.summary}
         Description: {hypothesis.description}
         Supporting Evidence: {', '.join(hypothesis.supporting_evidence)}
+        
+        {literature_context}
         
         Your task is to:
         1. Think of 3-5 important experimental observations or phenomena from the scientific literature that are relevant to this hypothesis and research goal.
@@ -683,6 +808,175 @@ class ReflectionAgent(BaseAgent):
             review = Review(
                 hypothesis_id=hypothesis.id,
                 review_type=ReviewType.OBSERVATION,
+                reviewer="reflection",
+                text=f"Error parsing review: {str(e)}\n\nRaw response:\n{response}",
+                overall_score=5.0,
+                critiques=["Error parsing review"],
+                strengths=[],
+                improvement_suggestions=[]
+            )
+            
+            return review
+            
+    async def simulation_review(self, 
+                           hypothesis: Hypothesis, 
+                           research_goal: ResearchGoal) -> Review:
+        """
+        Perform a step-by-step simulation review of a hypothesis.
+        
+        Args:
+            hypothesis (Hypothesis): The hypothesis to review.
+            research_goal (ResearchGoal): The research goal.
+            
+        Returns:
+            Review: The simulation review.
+        """
+        logger.info(f"Performing simulation review of hypothesis {hypothesis.id}: {hypothesis.title}")
+        
+        # Build the prompt
+        prompt = f"""
+        You are performing a simulation review of a scientific hypothesis. This involves simulating the hypothesis step-by-step to identify potential failure points and inconsistencies.
+
+        Research Goal:
+        {research_goal.text}
+        
+        Hypothesis to Review:
+        Title: {hypothesis.title}
+        Summary: {hypothesis.summary}
+        Description: {hypothesis.description}
+        Supporting Evidence: {', '.join(hypothesis.supporting_evidence)}
+        
+        Follow these steps:
+        1. Break down the hypothesis into a step-by-step model or mechanism.
+        2. For each step, simulate what would happen according to the hypothesis.
+        3. Identify any points where the simulation reveals inconsistencies, implausibilities, or contradictions.
+        4. Assess whether the overall simulation supports or refutes the hypothesis.
+        
+        Format your response as a JSON object with the following structure:
+        
+        ```json
+        {{
+            "steps": [
+                {{
+                    "step_description": "Description of this step in the mechanism...",
+                    "simulation_result": "What happens in this step according to the hypothesis...",
+                    "issues": ["Issue 1 with this step", "Issue 2 with this step", ...],
+                    "plausibility": "high", "medium", or "low"
+                }},
+                ...
+            ],
+            "failure_points": ["Step index (0-based) of failure points"],
+            "overall_plausibility": "high", "medium", or "low",
+            "overall_assessment": "Your overall assessment...",
+            "suggestions": ["Suggestion 1 to improve the hypothesis", ...]
+        }}
+        ```
+        """
+        
+        # Generate review
+        response = await self.generate(prompt)
+        
+        # Extract the JSON from the response
+        try:
+            # Find JSON content between backticks or at the start/end of the response
+            json_content = response
+            if "```json" in response:
+                json_content = response.split("```json")[1].split("```")[0].strip()
+            elif "```" in response:
+                json_content = response.split("```")[1].split("```")[0].strip()
+                
+            # Parse the JSON
+            data = json.loads(json_content)
+            
+            # Calculate a score based on the plausibility
+            plausibility_scores = {
+                "high": 9,
+                "medium": 6,
+                "low": 3
+            }
+            
+            # Count steps with different plausibility levels
+            step_plausibilities = [step.get("plausibility", "medium") for step in data["steps"]]
+            
+            # Calculate overall score based on individual step plausibilities
+            step_scores = [plausibility_scores.get(p, 5) for p in step_plausibilities]
+            avg_step_score = sum(step_scores) / len(step_scores) if step_scores else 5
+            
+            # Adjust score based on overall plausibility assessment
+            overall_plausibility = data.get("overall_plausibility", "medium")
+            overall_plausibility_score = plausibility_scores.get(overall_plausibility, 5)
+            
+            # Combine step average and overall assessment
+            overall_score = (avg_step_score + overall_plausibility_score) / 2
+            
+            # Apply penalty for failure points
+            num_failures = len(data.get("failure_points", []))
+            if num_failures > 0:
+                failure_penalty = min(4, num_failures)  # Cap penalty at 4 points
+                overall_score = max(1, overall_score - failure_penalty)
+            
+            # Build the review text
+            review_text = f"""
+            # Simulation Review of Hypothesis: {hypothesis.title}
+            
+            ## Step-by-Step Simulation
+            """
+            
+            for i, step in enumerate(data["steps"], 1):
+                review_text += f"""
+                ### Step {i}: {step["step_description"]}
+                **Simulation Result:** {step["simulation_result"]}
+                
+                **Plausibility:** {step.get("plausibility", "medium").upper()}
+                
+                **Issues:**
+                {chr(10).join(['- ' + issue for issue in step.get("issues", [])])}
+                """
+            
+            review_text += f"""
+            ## Failure Points
+            {chr(10).join(['- Step ' + str(int(i) + 1) + ': ' + data["steps"][int(i)]["step_description"] for i in data.get("failure_points", [])])}
+            
+            ## Overall Plausibility
+            {data.get("overall_plausibility", "medium").upper()}
+            
+            ## Overall Assessment
+            {data["overall_assessment"]}
+            
+            ## Suggestions for Improvement
+            {chr(10).join(['- ' + s for s in data.get("suggestions", [])])}
+            """
+            
+            # Create critiques and improvement suggestions
+            critiques = []
+            for i in data.get("failure_points", []):
+                i = int(i)
+                if i < len(data["steps"]):
+                    critiques.extend(data["steps"][i].get("issues", []))
+            
+            # Create the review
+            review = Review(
+                hypothesis_id=hypothesis.id,
+                review_type=ReviewType.SIMULATION,
+                reviewer="reflection",
+                text=review_text,
+                overall_score=overall_score,
+                critiques=critiques,
+                strengths=[],
+                improvement_suggestions=data.get("suggestions", [])
+            )
+            
+            logger.info(f"Completed simulation review of hypothesis {hypothesis.id} with overall score {overall_score:.2f}")
+            return review
+            
+        except Exception as e:
+            logger.error(f"Error parsing simulation review from response: {e}")
+            logger.debug(f"Response: {response}")
+            
+            # Create a basic review in case of parsing error
+            review = Review(
+                hypothesis_id=hypothesis.id,
+                review_type=ReviewType.SIMULATION,
                 reviewer="reflection",
                 text=f"Error parsing review: {str(e)}\n\nRaw response:\n{response}",
                 overall_score=5.0,
