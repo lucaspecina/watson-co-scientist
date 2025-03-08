@@ -550,6 +550,9 @@ class EvolutionAgent(BaseAgent):
         """
         Improve a hypothesis by applying concepts and principles from other scientific domains.
         
+        Uses the cross-domain synthesizer to gather information from multiple scientific domains
+        and apply interdisciplinary concepts to the hypothesis.
+        
         Args:
             hypothesis (Hypothesis): The hypothesis to improve
             research_goal (ResearchGoal): The research goal
@@ -564,20 +567,7 @@ class EvolutionAgent(BaseAgent):
         primary_domains = await self._detect_domains(research_goal, hypothesis)
         primary_domain = primary_domains[0] if primary_domains else "general"
         
-        # Define cross-domain areas that could provide inspiration
-        cross_domains = {
-            "biomedicine": ["physics", "computer_science", "ecology", "mathematics"],
-            "physics": ["biology", "computer_science", "economics", "mathematics"],
-            "chemistry": ["physics", "biology", "materials_science", "computer_science"],
-            "computer_science": ["neuroscience", "economics", "linguistics", "physics"],
-            "ecology": ["network_theory", "economics", "physics", "social_science"],
-            "general": ["physics", "biology", "computer_science", "mathematics", "economics"]
-        }
-        
-        # Select domains for cross-pollination
-        inspiration_domains = cross_domains.get(primary_domain, cross_domains["general"])
-        
-        # Prepare review context if provided
+        # Build context from reviews
         review_context = ""
         if reviews:
             review_text = "\n\n".join([
@@ -589,6 +579,93 @@ class EvolutionAgent(BaseAgent):
             Previous Reviews:
             {review_text}
             """
+        
+        # Try to use the cross-domain synthesizer if available
+        cross_domain_context = ""
+        try:
+            # Access system to get domain knowledge manager
+            from ..core.system import CoScientistSystem
+            from ..tools.domain_specific.cross_domain_synthesizer import CrossDomainSynthesizer
+            
+            # Find the system instance
+            system = None
+            import sys
+            main_module = sys.modules.get('__main__')
+            if main_module and hasattr(main_module, 'system') and isinstance(main_module.system, CoScientistSystem):
+                system = main_module.system
+            
+            if system and hasattr(system, 'domain_knowledge'):
+                # Create synthesizer with the domain knowledge manager
+                synthesizer = CrossDomainSynthesizer(system.domain_knowledge)
+                
+                # Create an enhanced query combining research goal and hypothesis
+                query = f"{research_goal.text} {hypothesis.title} {' '.join(primary_domains)}"
+                
+                # Determine potential cross-domains
+                cross_domains = {}
+                if primary_domain == "biomedicine":
+                    cross_domains = ["physics", "computer_science", "chemistry"]
+                elif primary_domain == "physics":
+                    cross_domains = ["biology", "computer_science", "mathematics"]
+                elif primary_domain == "chemistry":
+                    cross_domains = ["physics", "biology", "computer_science"]
+                elif primary_domain == "computer_science":
+                    cross_domains = ["neuroscience", "mathematics", "physics"]
+                elif primary_domain == "biology":
+                    cross_domains = ["computer_science", "physics", "chemistry"]
+                else:
+                    cross_domains = ["physics", "biology", "computer_science", "mathematics"]
+                
+                # Get cross-domain document context - use original domains plus detected ones
+                cross_domain_docs = await synthesizer.get_cross_domain_document_context(
+                    query, max_documents_per_domain=2
+                )
+                
+                # Format cross-domain information as context
+                if cross_domain_docs:
+                    cross_domain_sections = []
+                    for domain, content in cross_domain_docs.items():
+                        if domain != primary_domain:  # Only include cross-domains
+                            cross_domain_sections.append(f"--- {domain.upper()} DOMAIN KNOWLEDGE ---\n{content}")
+                    
+                    if cross_domain_sections:
+                        cross_domain_context = "Cross-Domain Knowledge:\n" + "\n\n".join(cross_domain_sections)
+                        
+                        # If cross-domain context is too large, summarize it
+                        if len(cross_domain_context) > 6000:
+                            logger.info("Cross-domain context is large, summarizing")
+                            
+                            summarization_prompt = f"""
+                            Summarize the following cross-domain scientific information to identify key concepts, principles,
+                            and methodologies that could be applied to improve a hypothesis in {primary_domain} domain.
+                            Focus on novel connections and interdisciplinary ideas.
+                            
+                            {cross_domain_context}
+                            """
+                            
+                            # Summarize the cross-domain context
+                            summary = await self.generate(summarization_prompt)
+                            cross_domain_context = f"Cross-Domain Knowledge Summary:\n{summary}"
+                            
+                # If we couldn't get cross-domain context, fall back to listing domains
+                if not cross_domain_context:
+                    cross_domain_context = f"Consider applying concepts and principles from these domains: {', '.join(cross_domains)}"
+                
+        except Exception as e:
+            logger.warning(f"Error using cross-domain synthesizer: {e}")
+            # Define fallback cross-domain areas for inspiration
+            cross_domains = {
+                "biomedicine": ["physics", "computer_science", "ecology", "mathematics"],
+                "physics": ["biology", "computer_science", "economics", "mathematics"],
+                "chemistry": ["physics", "biology", "materials_science", "computer_science"],
+                "computer_science": ["neuroscience", "economics", "linguistics", "physics"],
+                "ecology": ["network_theory", "economics", "physics", "social_science"],
+                "general": ["physics", "biology", "computer_science", "mathematics", "economics"]
+            }
+            
+            # Select domains for cross-pollination
+            inspiration_domains = cross_domains.get(primary_domain, cross_domains["general"])
+            cross_domain_context = f"Inspiration Domains:\n{', '.join(inspiration_domains)}"
         
         # Build the prompt
         prompt = f"""
@@ -607,15 +684,15 @@ class EvolutionAgent(BaseAgent):
         
         {review_context}
         
-        Inspiration Domains:
-        {", ".join(inspiration_domains)}
+        {cross_domain_context}
         
         Your task is to create an improved version of this hypothesis that:
-        1. Applies concepts, analogies, models, or principles from one or more of the inspiration domains
+        1. Applies concepts, analogies, models, or principles from other scientific domains to the primary domain
         2. Creates novel connections between the primary domain and other scientific fields
         3. Uses cross-domain thinking to address limitations identified in the reviews
         4. Maintains scientific rigor while introducing innovative perspectives
         5. Provides a fresh viewpoint that could lead to breakthrough insights
+        6. Uses the cross-domain knowledge provided to ground your improvements in actual scientific concepts
         
         Format your response as a JSON object with the following structure:
         
@@ -661,7 +738,7 @@ class EvolutionAgent(BaseAgent):
                 metadata={
                     "research_goal_id": research_goal.id,
                     "primary_domain": primary_domain,
-                    "inspiration_domains": data.get("inspiration_domains_used", inspiration_domains),
+                    "inspiration_domains": data.get("inspiration_domains_used", []),
                     "cross_domain_concepts": data.get("cross_domain_concepts", []),
                     "novel_connections": data.get("novel_connections", []),
                     "potential_breakthroughs": data.get("potential_breakthroughs", []),

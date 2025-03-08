@@ -14,3 +14,8 @@ langchain-openai==0.0.5
 langchain-community==0.0.16
 beautifulsoup4==4.12.2
 tavily-python==0.5.1
+# For domain-specific database access
+feedparser==6.0.10  # For ArXiv RSS feed parsing
+lxml==4.9.3  # For XML parsing
+pyparsing==3.1.1  # For parsing chemical formulas
+nest-asyncio==1.5.8  # For async operations in Jupyter notebooks

@@ -31,6 +31,9 @@ from ..agents.ranking_agent import RankingAgent
 from ..agents.proximity_agent import ProximityAgent
 from ..agents.evolution_agent import EvolutionAgent
 from ..agents.meta_review_agent import MetaReviewAgent
+# Import domain knowledge components
+from ..tools.domain_specific.knowledge_manager import DomainKnowledgeManager
+from ..tools.domain_specific.cross_domain_synthesizer import CrossDomainSynthesizer
 
 logger = logging.getLogger("co_scientist")
 
@@ -54,6 +57,9 @@ class CoScientistSystem:
         # Store a reference to this system in the config for agent access
         self.config.system = self
         
+        # Initialize domain knowledge manager
+        self.domain_knowledge = DomainKnowledgeManager(self.config.get("domain_knowledge", {}))
+        
         # Initialize agents
         self.supervisor = SupervisorAgent(self.config)
         self.generation = GenerationAgent(self.config)
@@ -62,6 +68,9 @@ class CoScientistSystem:
         self.proximity = ProximityAgent(self.config)
         self.evolution = EvolutionAgent(self.config)
         self.meta_review = MetaReviewAgent(self.config)
+        
+        # Initialize cross-domain synthesizer
+        self.cross_domain_synthesizer = CrossDomainSynthesizer(self.domain_knowledge)
         
         # Initialize state
         self.current_research_goal: Optional[ResearchGoal] = None
@@ -105,6 +114,25 @@ class CoScientistSystem:
         # Save the updated research goal
         self.db.research_goals.save(self.current_research_goal)
         
+        # Initialize domain knowledge for this research goal
+        try:
+            # Detect relevant domains for this research goal
+            domain_info = self.cross_domain_synthesizer.detect_research_domains(research_goal_text)
+            relevant_domains = [domain for domain, score in domain_info if score > 0.4]
+            
+            if relevant_domains:
+                logger.info(f"Detected relevant domains for research goal: {', '.join(relevant_domains)}")
+                # Initialize domain knowledge providers for these domains
+                await self.domain_knowledge.initialize(domains=relevant_domains)
+            else:
+                # Fall back to default domains if none detected
+                default_domains = ["biomedicine", "biology", "chemistry"]
+                logger.info(f"Using default domains: {', '.join(default_domains)}")
+                await self.domain_knowledge.initialize(domains=default_domains)
+                
+        except Exception as e:
+            logger.warning(f"Error initializing domain knowledge: {e}")
+        
         # Initialize state
         self.current_state = {
             "num_hypotheses": 0,
@@ -113,7 +141,8 @@ class CoScientistSystem:
             "num_protocols": 0,
             "top_hypotheses": [],
             "iterations_completed": 0,
-            "last_research_overview_id": None
+            "last_research_overview_id": None,
+            "relevant_domains": relevant_domains if 'relevant_domains' in locals() else []
         }
         
         # Initialize agent weights
@@ -367,6 +396,96 @@ class CoScientistSystem:
                 await self._generate_protocol()
                 print("Protocol generation completed.")
                 
+            elif user_input.startswith("search:"):
+                # Search across scientific databases
+                query = user_input[7:].strip()
+                if not query:
+                    print("Please provide a search query after 'search:'")
+                    continue
+                    
+                print(f"Searching scientific databases for: {query}")
+                
+                try:
+                    # Use cross-domain synthesizer to detect relevant domains
+                    domains = []
+                    if hasattr(self, 'cross_domain_synthesizer'):
+                        domain_info = self.cross_domain_synthesizer.detect_research_domains(query)
+                        domains = [domain for domain, score in domain_info if score > 0.4][:3]
+                        
+                        print(f"Detected relevant domains: {', '.join(domains)}")
+                    
+                    # Initialize domain knowledge if needed
+                    if hasattr(self, 'domain_knowledge') and not self.domain_knowledge.initialized:
+                        print("Initializing domain knowledge...")
+                        await self.domain_knowledge.initialize(domains=domains)
+                    
+                    # Search across domains
+                    results = await self.domain_knowledge.search(query, domains=domains, limit=3)
+                    
+                    # Display results
+                    print("\n============ SEARCH RESULTS ============")
+                    for domain, domain_results in results.items():
+                        print(f"\n{domain.upper()} DOMAIN:")
+                        if not domain_results:
+                            print("  No results found")
+                            continue
+                            
+                        for i, result in enumerate(domain_results, 1):
+                            print(f"  {i}. {result.get('title', 'Untitled')}")
+                            if result.get('authors'):
+                                print(f"     Authors: {', '.join(result['authors'][:3])}")
+                            if result.get('journal'):
+                                print(f"     Journal: {result['journal']}")
+                            if result.get('year'):
+                                print(f"     Year: {result['year']}")
+                            if result.get('url'):
+                                print(f"     URL: {result['url']}")
+                            print()
+                    
+                except Exception as e:
+                    print(f"Error searching scientific databases: {e}")
+                    
+            elif user_input.startswith("synthesize:"):
+                # Synthesize knowledge across domains
+                query = user_input[11:].strip()
+                if not query:
+                    print("Please provide a query after 'synthesize:'")
+                    continue
+                    
+                print(f"Synthesizing knowledge across domains for: {query}")
+                
+                try:
+                    if not hasattr(self, 'cross_domain_synthesizer'):
+                        print("Cross-domain synthesizer not available")
+                        continue
+                        
+                    # Use cross-domain synthesizer to detect domains and synthesize knowledge
+                    domain_info = self.cross_domain_synthesizer.detect_research_domains(query)
+                    domains = [domain for domain, score in domain_info if score > 0.4][:3]
+                    
+                    print(f"Detected relevant domains: {', '.join(domains)}")
+                    
+                    # Initialize domain knowledge if needed
+                    if hasattr(self, 'domain_knowledge') and not self.domain_knowledge.initialized:
+                        print("Initializing domain knowledge...")
+                        await self.domain_knowledge.initialize(domains=domains)
+                    
+                    # Perform synthesis
+                    print("Gathering and synthesizing information across domains...")
+                    synthesis = await self.cross_domain_synthesizer.synthesize_multi_domain_knowledge(
+                        query, max_entities_per_domain=2, max_related_per_entity=2
+                    )
+                    
+                    # Format and display highlights
+                    if synthesis:
+                        highlights = self.cross_domain_synthesizer.format_synthesis_highlights(synthesis)
+                        print("\n" + highlights)
+                    else:
+                        print("No synthesis results available.")
+                    
+                except Exception as e:
+                    print(f"Error synthesizing knowledge: {e}")
+                
             else:
                 print("Unknown command. Type 'help' for a list of commands.")
     
@@ -379,6 +498,8 @@ class CoScientistSystem:
         print("  overview         - Generate and print a research overview")
         print("  protocols        - Show generated experimental protocols")
         print("  generate-protocol- Generate an experimental protocol for a top hypothesis")
+        print("  search: <query>  - Search scientific databases across domains")
+        print("  synthesize: <query> - Synthesize knowledge across multiple scientific domains")
         print("  help             - Print this help message")
         print("  exit             - Exit interactive mode")
     
@@ -691,11 +812,31 @@ class CoScientistSystem:
             if not all_hypotheses:
                 logger.info("No hypotheses available for evolution")
                 return
-                
-            # Choose evolution method based on randomness
-            r = random.random()
             
-            if r < 0.4:
+            # Get the distribution of evolution strategies based on system capabilities
+            strategy_weights = {
+                "improve": 0.3,
+                "combine": 0.2,
+                "out_of_box": 0.1,
+                "simplify": 0.1,
+            }
+            
+            # If we have domain knowledge available, add those strategies with higher weights
+            if hasattr(self, 'domain_knowledge') and self.domain_knowledge.initialized:
+                strategy_weights["domain_knowledge"] = 0.2
+                strategy_weights["cross_domain"] = 0.2
+                # Adjust other weights to maintain sum = 1.0
+                total = sum(strategy_weights.values())
+                strategy_weights = {k: v/total for k, v in strategy_weights.items()}
+            
+            # Choose evolution method based on weighted probabilities
+            strategies = list(strategy_weights.keys())
+            weights = list(strategy_weights.values())
+            selected_strategy = random.choices(strategies, weights=weights, k=1)[0]
+            
+            logger.info(f"Selected evolution strategy: {selected_strategy}")
+            
+            if selected_strategy == "improve":
                 # Improve a single hypothesis
                 # Select a hypothesis with preference for higher ratings
                 sorted_hypotheses = sorted(all_hypotheses, key=lambda h: h.elo_rating, reverse=True)
@@ -705,9 +846,8 @@ class CoScientistSystem:
                 # Get reviews for this hypothesis
                 reviews = self.db.get_reviews_for_hypothesis(hypothesis.id)
                 
-                # Use enhanced evolution strategy that automatically selects the appropriate
-                # improvement strategy based on the hypothesis and reviews
-                improved = await self.evolution.evolve_hypothesis(
+                # Use standard improvement strategy
+                improved = await self.evolution.improve_hypothesis(
                     hypothesis,
                     self.current_research_goal,
                     reviews
@@ -718,11 +858,59 @@ class CoScientistSystem:
                 
                 logger.info(f"Improved hypothesis {hypothesis.id} -> {improved.id}")
                 
-            elif r < 0.7:
+            elif selected_strategy == "domain_knowledge":
+                # Improve using domain-specific knowledge
+                # Select a hypothesis with preference for higher ratings
+                sorted_hypotheses = sorted(all_hypotheses, key=lambda h: h.elo_rating, reverse=True)
+                target_idx = int(random.triangular(0, len(sorted_hypotheses) - 1, 0))
+                hypothesis = sorted_hypotheses[target_idx]
+                
+                # Get reviews for this hypothesis
+                reviews = self.db.get_reviews_for_hypothesis(hypothesis.id)
+                
+                # Use domain knowledge enhancement
+                improved = await self.evolution.improve_with_domain_knowledge(
+                    hypothesis,
+                    self.current_research_goal,
+                    reviews
+                )
+                
+                # Save the improved hypothesis
+                self.db.hypotheses.save(improved)
+                
+                logger.info(f"Improved hypothesis with domain knowledge {hypothesis.id} -> {improved.id}")
+                
+            elif selected_strategy == "cross_domain":
+                # Apply cross-domain inspiration
+                # Select a hypothesis with preference for higher ratings
+                sorted_hypotheses = sorted(all_hypotheses, key=lambda h: h.elo_rating, reverse=True)
+                target_idx = int(random.triangular(0, len(sorted_hypotheses) - 1, 0))
+                hypothesis = sorted_hypotheses[target_idx]
+                
+                # Get reviews for this hypothesis
+                reviews = self.db.get_reviews_for_hypothesis(hypothesis.id)
+                
+                # Use cross-domain inspiration
+                improved = await self.evolution.apply_cross_domain_inspiration(
+                    hypothesis,
+                    self.current_research_goal,
+                    reviews
+                )
+                
+                # Save the improved hypothesis
+                self.db.hypotheses.save(improved)
+                
+                logger.info(f"Applied cross-domain inspiration to hypothesis {hypothesis.id} -> {improved.id}")
+                
+            elif selected_strategy == "combine":
                 # Combine multiple hypotheses
                 # Select 2-3 hypotheses, with preference for higher ratings
                 sorted_hypotheses = sorted(all_hypotheses, key=lambda h: h.elo_rating, reverse=True)
                 num_to_combine = min(2 + int(random.random() * 2), len(sorted_hypotheses))
+                
+                if num_to_combine < 2:
+                    logger.info("Not enough hypotheses for combination")
+                    return
                 
                 # Select hypotheses with preference for higher ratings
                 indices = [int(random.triangular(0, len(sorted_hypotheses) - 1, 0)) for _ in range(num_to_combine)]
@@ -739,7 +927,7 @@ class CoScientistSystem:
                 
                 logger.info(f"Combined {num_to_combine} hypotheses -> {combined.id}")
                 
-            elif r < 0.85:
+            elif selected_strategy == "out_of_box":
                 # Generate an out-of-box hypothesis
                 out_of_box = await self.evolution.generate_out_of_box_hypothesis(
                     self.current_research_goal,
@@ -748,6 +936,26 @@ class CoScientistSystem:
                 
                 # Save the out-of-box hypothesis
                 self.db.hypotheses.save(out_of_box)
+                
+                logger.info(f"Generated out-of-box hypothesis -> {out_of_box.id}")
+                
+            elif selected_strategy == "simplify":
+                # Simplify a hypothesis
+                # Select a hypothesis with preference for higher ratings
+                sorted_hypotheses = sorted(all_hypotheses, key=lambda h: h.elo_rating, reverse=True)
+                target_idx = int(random.triangular(0, len(sorted_hypotheses) - 1, 0))
+                hypothesis = sorted_hypotheses[target_idx]
+                
+                # Simplify the hypothesis
+                simplified = await self.evolution.simplify_hypothesis(
+                    hypothesis,
+                    self.current_research_goal
+                )
+                
+                # Save the simplified hypothesis
+                self.db.hypotheses.save(simplified)
+                
+                logger.info(f"Simplified hypothesis {hypothesis.id} -> {simplified.id}")
                 
                 logger.info(f"Generated out-of-box hypothesis: {out_of_box.id}")
                 

@@ -1,18 +1,19 @@
 # Watson Co-Scientist
 
-An AI system that assists scientists in generating, refining, and testing research hypotheses. This system serves as a collaborative partner, enhancing scientists' ability to explore complex scientific problems efficiently.
+An AI system that assists scientists in generating, refining, and testing research hypotheses. This system serves as a collaborative partner, enhancing scientists' ability to explore complex scientific problems efficiently through multi-database scientific knowledge integration.
 
 ## Overview
 
 The co-scientist is designed to act as a helpful assistant and collaborator to scientists, helping to accelerate the scientific discovery process. The system is a compound, multi-agent AI system built on large language models, designed to mirror the reasoning process underpinning the scientific method.
 
 Given a research goal specified in natural language, the system can:
-- Generate novel, original research hypotheses
+- Generate novel, original research hypotheses using knowledge from multiple scientific databases
 - Propose experimental protocols for downstream validations
 - Provide rigorous verification of hypotheses through causal reasoning and computational simulation
 - Identify specific, testable predictions and potential failure modes
-- Provide grounding for recommendations by citing relevant literature
+- Provide grounding for recommendations by citing relevant literature from multiple sources
 - Explain the reasoning behind proposals with probabilistic assessment
+- Synthesize knowledge across scientific domains to promote interdisciplinary discovery
 
 ## System Architecture
 
@@ -32,6 +33,17 @@ The system employs a multi-agent architecture integrated within an asynchronous 
 7. **Meta-Review Agent**: Synthesizes insights from reviews and tournaments into a comprehensive research overview, including causal reasoning patterns and verification recommendations
 
 ## Features
+
+- **Deep Scientific Database Integration**: 
+  - Direct integration with PubMed, ArXiv, PubChem, UniProt, and other scientific databases
+  - Cross-domain knowledge synthesis across multiple sources
+  - Domain-specific knowledge retrieval and citation formatting
+
+- **Advanced Knowledge Processing**:
+  - Multi-domain concurrent search and retrieval
+  - Automatic domain detection for research questions
+  - Cross-domain relationship mapping for interdisciplinary research
+  - Dynamic knowledge weighting based on research context
 
 - **Scientist-in-the-loop**: The system is designed for collaboration with scientists, allowing them to guide the process
 - **Multi-agent architecture**: Specialized agents work together to generate, evaluate, and refine hypotheses
@@ -117,6 +129,10 @@ When running in interactive mode, you can use the following commands:
 - `run <N>` - Run N iterations
 - `state` - Print the current system state
 - `overview` - Generate and print a research overview
+- `protocols` - Show generated experimental protocols
+- `generate-protocol` - Generate an experimental protocol for a top hypothesis
+- `search: <query>` - Search scientific databases across domains
+- `synthesize: <query>` - Synthesize knowledge across multiple scientific domains
 - `help` - Show help information
 - `exit` or `quit` - Exit the program
 
@@ -124,6 +140,7 @@ Example session:
 ```
 > goal: Investigate the role of mitochondrial dysfunction in neurodegenerative diseases
 Analyzing research goal: Investigating the role of mitochondrial dysfunction in neurodegenerative...
+Detected relevant domains: biomedicine, biology, chemistry
 Research goal set. Type 'run' to start processing, or 'run N' to run N iterations.
 
 > run 2
@@ -142,6 +159,57 @@ Tournament matches: 3
 Top Hypotheses:
   1. Mitochondrial Complex I Dysfunction in Parkinson's Disease (Rating: 1215.0)
   2. Mitochondrial DNA Mutations in Alzheimer's Disease (Rating: 1208.4)
+  ...
+
+> search: mitochondrial ROS in Alzheimer's
+Searching scientific databases for: mitochondrial ROS in Alzheimer's
+Detected relevant domains: biomedicine, biology
+Searching across domains...
+
+============ SEARCH RESULTS ============
+
+BIOMEDICINE DOMAIN:
+  1. Mitochondria-derived reactive oxygen species and Alzheimer's disease
+     Authors: Swerdlow, R.H., Burns, J.M., Khan, S.M.
+     Journal: Biochimica et Biophysica Acta
+     Year: 2014
+     URL: https://pubmed.ncbi.nlm.nih.gov/24189435/
+
+  2. Mitochondrial dysfunction and oxidative stress in Alzheimer's disease
+     Authors: Lin, M.T., Beal, M.F.
+     Journal: Nature
+     Year: 2006
+     URL: https://pubmed.ncbi.nlm.nih.gov/17051205/
+  ...
+
+> synthesize: relationship between mitophagy and neurodegeneration
+Synthesizing knowledge across domains for: relationship between mitophagy and neurodegeneration
+Detected relevant domains: biomedicine, biology
+Gathering and synthesizing information across domains...
+
+# Knowledge Synthesis for: relationship between mitophagy and neurodegeneration
+
+## Domains Overview
+- Biomedicine: Relevance score 0.86
+- Biology: Relevance score 0.72
+- Chemistry: Relevance score 0.35
+
+## Biomedicine Domain Findings
+### 1. Impaired Mitophagy in Parkinson's Disease
+PINK1/Parkin-mediated mitophagy is crucial for removing damaged mitochondria, and defects in this pathway are implicated in Parkinson's disease pathogenesis. Mutations in PINK1 and Parkin genes disrupt mitophagy, leading to accumulation of dysfunctional mitochondria...
+Source: pubmed
+
+#### Cross-domain connections:
+- Biology: Mitochondrial quality control mechanisms, Autophagy receptor proteins
+
+## Biology Domain Findings
+### 1. Mitophagy and Mitochondrial Dynamics
+Mitophagy is coordinated with mitochondrial fusion and fission processes. Fission segregates damaged mitochondrial components, making them accessible for mitophagy, while fusion helps redistribute mitochondrial contents to maintain functional networks...
+Source: uniprot
+
+## Synthesis Across Domains
+The findings suggest connections between:
+- Biomedicine and Biology: mitochondrial dysfunction, oxidative stress, autophagy
   ...
 
 > overview
