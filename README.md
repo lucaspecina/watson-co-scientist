@@ -332,6 +332,95 @@ watson-co-scientist/
 pytest tests/
 ```
 
+## System Functionality
+
+### How the Watson Co-Scientist Works
+
+The Watson Co-Scientist follows a systematic approach to scientific hypothesis generation and evaluation:
+
+1. **Research Goal Specification**
+   - The process begins with a research goal specified by a scientist in natural language
+   - The system parses this goal, identifying key concepts, domains, and constraints
+   - A research plan configuration is created to guide the hypothesis generation process
+
+2. **Hypothesis Generation**
+   - The Generation Agent produces initial hypotheses using several methods:
+     - Literature exploration via scientific database integration
+     - Simulated scientific debates among experts
+     - Iterative identification of testable assumptions
+     - Expansion into previously unexplored research areas
+   - Each hypothesis includes: title, summary, detailed description, and supporting evidence
+
+3. **Multi-level Hypothesis Review**
+   - The Reflection Agent conducts thorough reviews of each hypothesis:
+     - **Initial Review**: Quick assessment of correctness, quality, and novelty
+     - **Full Review**: In-depth analysis with literature grounding
+     - **Deep Verification Review**: Decomposition into constituent assumptions with confidence levels
+     - **Observation Review**: Assessment of whether hypothesis explains existing experimental findings
+     - **Simulation Review**: Step-by-step modeling of the hypothesized mechanism
+
+4. **Tournament-based Ranking**
+   - The Ranking Agent conducts an Elo-based tournament to evaluate hypotheses:
+     - Pairwise comparisons through multi-turn scientific debates
+     - Focus on novelty, correctness, and testability
+     - Optimization using the Proximity Agent's graph to compare similar hypotheses
+     - Progressive refinement of rankings across multiple iterations
+
+5. **Hypothesis Evolution**
+   - The Evolution Agent improves promising hypotheses using multiple strategies:
+     - **Standard Improvement**: Addressing weaknesses identified in reviews
+     - **Domain Knowledge Integration**: Grounding in specialized scientific knowledge
+     - **Cross-domain Inspiration**: Applying concepts from other scientific fields
+     - **Knowledge Graph Enhancement**: Using extracted scientific literature connections
+     - **Out-of-box Thinking**: Generating unconventional alternatives
+     - **Simplification**: Improving clarity while preserving core ideas
+     - **Combination**: Merging strengths of multiple hypotheses
+
+6. **Scientific Knowledge Processing**
+   - The system uses multiple approaches to process scientific knowledge:
+     - **Multi-database Integration**: Searching across PubMed, ArXiv, etc.
+     - **Domain Ontology Utilization**: Mapping concepts within specialized domains
+     - **Cross-domain Synthesis**: Finding connections across different disciplines
+     - **Paper Knowledge Extraction**: Processing full papers beyond abstracts
+     - **Knowledge Graph Construction**: Building a graph of entities and relationships
+
+7. **Scientific Paper Processing**
+   - The Paper Knowledge Extraction System enables deeper literature understanding:
+     - **PDF Retrieval**: Downloads papers from various scientific sources
+     - **Content Extraction**: Processes text, figures, tables, and citations
+     - **Knowledge Extraction**: Identifies entities, relations, and findings
+     - **Knowledge Graph Integration**: Connects concepts across multiple papers
+     - **Hypothesis Enhancement**: Grounds hypotheses in specific papers and findings
+
+8. **Research Synthesis and Reporting**
+   - The Meta-review Agent synthesizes results for the scientist:
+     - Identifies patterns across reviews and debates
+     - Summarizes top-ranked hypotheses into a research overview
+     - Outlines potential research areas with justifications
+     - Suggests specific experiments and testable predictions
+     - Identifies potential domain experts for collaboration
+
+9. **Scientist-in-the-loop Interaction**
+   - Throughout the process, scientists can:
+     - Refine the research goal based on generated hypotheses
+     - Provide manual reviews of system-generated hypotheses
+     - Contribute their own hypotheses to the tournament
+     - Direct the system to explore specific research directions
+     - Integrate their expertise with the system's capabilities
+
+### Example System Workflow
+
+1. Scientist specifies: "Investigate the molecular mechanisms of protein misfolding in neurodegenerative diseases"
+2. System detects relevant domains: biomedicine, biochemistry, molecular biology
+3. Generation Agent creates initial hypotheses about protein misfolding mechanisms
+4. Reflection Agent reviews hypotheses for scientific validity and novelty
+5. Tournament ranks hypotheses through simulated scientific debates
+6. Evolution Agent improves promising hypotheses using specialized knowledge
+7. Paper Knowledge Extraction System processes relevant scientific papers
+8. Knowledge Graph connects concepts across multiple papers and domains
+9. Meta-review Agent synthesizes findings into a comprehensive research overview
+10. Scientist reviews the output, provides feedback, and guides further exploration
+
 ## License
 
 MIT

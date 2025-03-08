@@ -1,5 +1,9 @@
 """
 Evolution Agent for improving existing hypotheses.
+
+This agent specializes in taking existing hypotheses and evolving them through
+various strategies, including domain knowledge integration, cross-domain inspiration,
+literature-based enhancement, and knowledge graph mining.
 """
 
 import json
@@ -22,6 +26,8 @@ from ..core.models import (
 from ..tools.web_search import WebSearchTool
 from ..tools.domain_specific.knowledge_manager import DomainKnowledgeManager
 from ..tools.domain_specific.ontology import DomainOntology
+from ..tools.paper_extraction.extraction_manager import PaperExtractionManager
+from ..tools.paper_extraction.knowledge_graph import KnowledgeGraph
 
 logger = logging.getLogger("co_scientist")
 
@@ -57,20 +63,68 @@ class EvolutionAgent(BaseAgent):
         # Initialize domain knowledge manager
         self.domain_knowledge = DomainKnowledgeManager(config.get("domain_knowledge", {}))
         
+        # Initialize paper extraction and knowledge graph components
+        self.extraction_manager = None
+        self.knowledge_graph = None
+        self._initialize_paper_extraction_system()
+        
         # Track available ontologies
         self.ontologies = {}
         self._load_ontologies()
         
         # Evolution strategies with weights (for random selection)
         self.evolution_strategies = {
-            "improve": 0.3,           # Standard improvements
-            "combine": 0.2,           # Combine multiple hypotheses
+            "improve": 0.25,           # Standard improvements
+            "combine": 0.15,           # Combine multiple hypotheses
+            "knowledge_graph": 0.2,    # Use knowledge graph for insights
             "domain_knowledge": 0.2,  # Integrate domain-specific knowledge
             "out_of_box": 0.1,        # Generate creative, unconventional hypotheses
             "cross_domain": 0.1,      # Apply concepts from other domains
             "simplify": 0.1,          # Simplify complex hypotheses
         }
         
+    def _initialize_paper_extraction_system(self):
+        """Initialize the paper extraction system and knowledge graph."""
+        try:
+            # Check if paper extraction is enabled
+            paper_extraction_enabled = self.config.get("paper_extraction_enabled", True)
+            if not paper_extraction_enabled:
+                logger.info("Paper extraction system is disabled. Skipping initialization.")
+                return
+                
+            # Configure extraction manager
+            extraction_config = {
+                'base_dir': self.config.get("paper_extraction_dir", "data/papers_db")
+            }
+            
+            # Create extraction manager
+            self.extraction_manager = PaperExtractionManager(extraction_config, llm_provider=self.llm)
+            
+            # Configure knowledge graph
+            graph_config = {
+                'storage_dir': self.config.get("knowledge_graph_dir", "data/knowledge_graph")
+            }
+            
+            # Load existing knowledge graph if available
+            graph_path = os.path.join(graph_config['storage_dir'], "knowledge_graph.json")
+            if os.path.exists(graph_path):
+                try:
+                    self.knowledge_graph = KnowledgeGraph.load(graph_path, graph_config)
+                    logger.info(f"Loaded knowledge graph with {len(self.knowledge_graph.entities)} entities, "
+                               f"{len(self.knowledge_graph.relations)} relations, and {len(self.knowledge_graph.papers)} papers")
+                except Exception as e:
+                    logger.error(f"Failed to load knowledge graph: {str(e)}")
+                    self.knowledge_graph = KnowledgeGraph(graph_config)
+            else:
+                logger.info("No existing knowledge graph found. Creating new one.")
+                self.knowledge_graph = KnowledgeGraph(graph_config)
+            
+            logger.info("Successfully initialized paper extraction system and knowledge graph")
+        except Exception as e:
+            logger.error(f"Error initializing paper extraction system: {str(e)}")
+            import traceback
+            logger.debug(f"Traceback: {traceback.format_exc()}")
+            
     def _load_ontologies(self):
         """Load available domain ontologies."""
         try:
@@ -181,6 +235,8 @@ class EvolutionAgent(BaseAgent):
             return await self.apply_cross_domain_inspiration(hypothesis, research_goal, reviews)
         elif strategy == "simplify":
             return await self.simplify_hypothesis(hypothesis, research_goal)
+        elif strategy == "knowledge_graph":
+            return await self.improve_with_knowledge_graph(hypothesis, research_goal, reviews)
         else:
             # Fallback to standard improvement
             return await self.improve_hypothesis(hypothesis, research_goal, reviews)
@@ -1165,3 +1221,279 @@ class EvolutionAgent(BaseAgent):
             
             # Return the original hypothesis in case of error
             return hypothesis
+            
+    async def improve_with_knowledge_graph(self,
+                                  hypothesis: Hypothesis,
+                                  research_goal: ResearchGoal,
+                                  reviews: List[Review] = None) -> Hypothesis:
+        """
+        Improve a hypothesis using insights from the scientific knowledge graph.
+        
+        This method leverages the paper extraction system and knowledge graph to find
+        relevant connections, entities, and papers that can enhance the hypothesis.
+        
+        Args:
+            hypothesis (Hypothesis): The hypothesis to improve
+            research_goal (ResearchGoal): The research goal
+            reviews (List[Review], optional): Reviews of the hypothesis. Defaults to None.
+            
+        Returns:
+            Hypothesis: The improved hypothesis with knowledge graph insights
+        """
+        logger.info(f"Improving hypothesis {hypothesis.id} using knowledge graph")
+        
+        # Ensure knowledge graph is initialized
+        if not self.knowledge_graph:
+            logger.warning("Knowledge graph not initialized. Falling back to standard improvement.")
+            return await self.improve_hypothesis(hypothesis, research_goal, reviews)
+        
+        # Extract key terms from hypothesis and research goal
+        key_terms = self._extract_key_terms(hypothesis, research_goal)
+        logger.info(f"Extracted key terms for knowledge graph search: {key_terms}")
+        
+        # Find relevant entities in the knowledge graph
+        graph_context = ""
+        entity_insights = {}
+        related_papers = []
+        citations = []
+        
+        # Prepare review context if provided
+        review_context = ""
+        if reviews:
+            review_text = "\n\n".join([
+                f"Review {i+1}:\n{review.text}"
+                for i, review in enumerate(reviews)
+            ])
+            
+            review_context = f"""
+            Previous Reviews:
+            {review_text}
+            """
+            
+            # Extract review critiques to guide what kind of knowledge is needed
+            critique_points = []
+            for review in reviews:
+                critique_points.extend(review.critiques)
+            
+            critique_text = " ".join(critique_points).lower()
+            
+            # Add critique-focused terms
+            if "lacks evidence" in critique_text or "needs support" in critique_text:
+                key_terms.append("evidence")
+            if "mechanism unclear" in critique_text or "how it works" in critique_text:
+                key_terms.append("mechanism")
+            if "not novel" in critique_text:
+                key_terms.append("novel")
+        
+        try:
+            # Search for relevant entities
+            for term in key_terms:
+                entities = self.knowledge_graph.find_entities(term, limit=3)
+                
+                for entity in entities:
+                    entity_id = entity['id'] if isinstance(entity, dict) else entity
+                    
+                    # Skip if we've already processed this entity
+                    if entity_id in entity_insights:
+                        continue
+                    
+                    # Get entity details
+                    entity_data = self.knowledge_graph.get_entity(entity_id)
+                    if not entity_data:
+                        continue
+                        
+                    # Get relations for this entity
+                    relations = self.knowledge_graph.get_entity_relations(entity_id, limit=5)
+                    
+                    # Format entity information
+                    relation_text = ""
+                    if relations:
+                        relation_text = "\n".join([
+                            f"- {rel['relation_type']}: {rel['target_entity']} (from {rel['source']})"
+                            for rel in relations[:5]
+                        ])
+                    
+                    # Add to insights
+                    entity_insights[entity_id] = {
+                        "name": entity_data.get("name", entity_id),
+                        "description": entity_data.get("description", ""),
+                        "relations": relation_text
+                    }
+                    
+                    # Find related papers for this entity
+                    entity_papers = self.knowledge_graph.find_papers_with_entity(entity_id, limit=2)
+                    for paper in entity_papers:
+                        if paper not in related_papers:
+                            related_papers.append(paper)
+            
+            # Create a citation for each related paper
+            for paper_id in related_papers:
+                paper_data = self.knowledge_graph.get_paper(paper_id)
+                if paper_data:
+                    # Extract paper information
+                    citation = Citation(
+                        title=paper_data.get("title", "Unknown"),
+                        authors=paper_data.get("authors", []),
+                        year=paper_data.get("year", ""),
+                        journal=paper_data.get("journal", ""),
+                        url=paper_data.get("url", ""),
+                        snippet=paper_data.get("abstract", "")[:200],
+                        source="knowledge_graph"
+                    )
+                    citations.append(citation)
+            
+            # Find paths between entities to reveal relationships
+            paths = []
+            entity_ids = list(entity_insights.keys())
+            if len(entity_ids) >= 2:
+                # Create combinations of entity pairs
+                for i in range(len(entity_ids)):
+                    for j in range(i+1, len(entity_ids)):
+                        path = self.knowledge_graph.find_path(entity_ids[i], entity_ids[j], max_length=3)
+                        if path:
+                            paths.append(path)
+            
+            # Format entity insights for the prompt
+            if entity_insights:
+                entities_text = "\n\n".join([
+                    f"Entity: {data['name']}\n"
+                    f"Description: {data['description']}\n"
+                    f"Relationships:\n{data['relations']}"
+                    for entity_id, data in entity_insights.items()
+                ])
+                
+                # Format paths between entities
+                paths_text = ""
+                if paths:
+                    paths_text = "\n\n".join([
+                        f"Path {i+1}: {' -> '.join(p)}"
+                        for i, p in enumerate(paths[:3])
+                    ])
+                    paths_text = f"\nConnections between entities:\n{paths_text}"
+                
+                # Format related papers
+                papers_text = ""
+                if related_papers:
+                    paper_items = []
+                    for i, paper_id in enumerate(related_papers[:5]):
+                        paper_data = self.knowledge_graph.get_paper(paper_id)
+                        if paper_data:
+                            paper_items.append(
+                                f"Paper {i+1}:\n"
+                                f"Title: {paper_data.get('title', 'Unknown')}\n"
+                                f"Authors: {', '.join(paper_data.get('authors', []))}\n"
+                                f"Abstract: {paper_data.get('abstract', '')[:300]}...\n"
+                            )
+                    
+                    if paper_items:
+                        papers_text = f"\nRelevant Papers:\n\n" + "\n\n".join(paper_items)
+                
+                # Combine all information
+                graph_context = f"""
+                Knowledge Graph Insights:
+                
+                Relevant Scientific Entities:
+                {entities_text}
+                {paths_text}
+                {papers_text}
+                
+                IMPORTANT: Use these knowledge graph insights to enhance the hypothesis. Incorporate relevant entities, 
+                relationships, and findings from the papers. Make connections between concepts that appear in the graph.
+                """
+        except Exception as e:
+            logger.error(f"Error extracting knowledge graph insights: {e}")
+            import traceback
+            logger.debug(f"Traceback: {traceback.format_exc()}")
+        
+        # If we couldn't get any knowledge graph insights, fall back to regular improvement
+        if not graph_context:
+            logger.warning("No knowledge graph insights found. Falling back to standard improvement.")
+            return await self.improve_hypothesis(hypothesis, research_goal, reviews)
+        
+        # Build the prompt
+        prompt = f"""
+        You are improving a scientific hypothesis by incorporating insights from a scientific knowledge graph.
+        
+        Research Goal:
+        {research_goal.text}
+        
+        Original Hypothesis:
+        Title: {hypothesis.title}
+        Summary: {hypothesis.summary}
+        Description: {hypothesis.description}
+        Supporting Evidence: {', '.join(hypothesis.supporting_evidence)}
+        
+        {review_context}
+        
+        {graph_context}
+        
+        Your task is to create an improved version of this hypothesis that:
+        1. Incorporates the relevant scientific entities and relationships from the knowledge graph
+        2. Uses findings from the related papers to strengthen the hypothesis
+        3. Makes connections between concepts that appear in the knowledge graph
+        4. Addresses any weaknesses identified in the reviews
+        5. Is more scientifically precise and grounded in the knowledge graph
+        6. Makes testable predictions based on the knowledge graph insights
+        
+        Format your response as a JSON object with the following structure:
+        
+        ```json
+        {{
+            "title": "New title for the hypothesis informed by the knowledge graph",
+            "summary": "Brief summary incorporating knowledge graph insights (1-2 sentences)",
+            "description": "Detailed description with knowledge graph entities and relationships (1-2 paragraphs)",
+            "supporting_evidence": ["Evidence 1", "Evidence 2", ...],
+            "entities_used": ["Entity 1", "Entity 2", ...],
+            "insights_applied": ["Insight 1", "Insight 2", ...],
+            "novel_connections": ["Connection 1", "Connection 2", ...]
+        }}
+        ```
+        """
+        
+        # Generate improved hypothesis
+        response = await self.generate(prompt)
+        
+        # Extract the JSON from the response
+        try:
+            # Find JSON content between backticks or at the start/end of the response
+            json_content = response
+            if "```json" in response:
+                json_content = response.split("```json")[1].split("```")[0].strip()
+            elif "```" in response:
+                json_content = response.split("```")[1].split("```")[0].strip()
+                
+            # Parse the JSON
+            data = json.loads(json_content)
+            
+            # Create the improved hypothesis
+            citation_ids = [c.id for c in citations]
+            
+            improved = Hypothesis(
+                title=data["title"],
+                description=data["description"],
+                summary=data["summary"],
+                supporting_evidence=data["supporting_evidence"],
+                creator="evolution_knowledge_graph",
+                source=HypothesisSource.EVOLVED,
+                parent_hypotheses=[hypothesis.id],
+                citations=citation_ids,
+                literature_grounded=True,
+                tags={"knowledge_graph_enhanced"},
+                metadata={
+                    "research_goal_id": research_goal.id,
+                    "entities_used": data.get("entities_used", []),
+                    "insights_applied": data.get("insights_applied", []),
+                    "novel_connections": data.get("novel_connections", []),
+                    "evolution_strategy": "knowledge_graph"
+                }
+            )
+            
+            logger.info(f"Created knowledge graph enhanced hypothesis: {improved.title}")
+            return improved
+            
+        except Exception as e:
+            logger.error(f"Error parsing knowledge graph enhanced hypothesis from response: {e}")
+            logger.debug(f"Response: {response}")
+            
+            # Fallback to standard improvement
+            return await self.improve_hypothesis(hypothesis, research_goal, reviews)
