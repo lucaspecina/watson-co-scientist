@@ -68,6 +68,31 @@ class KnowledgeExtractor:
         # Configure knowledge graph settings
         self.entity_similarity_threshold = self.config.get('entity_similarity_threshold', 0.85)
         
+    async def generate_text(self, prompt: str) -> str:
+        """
+        Helper method to generate text from a prompt using the LLM provider.
+        
+        Args:
+            prompt (str): The prompt to send to the LLM
+            
+        Returns:
+            str: The generated text response
+        """
+        if not self.llm_provider:
+            logger.warning("No LLM provider available for text generation")
+            return ""
+            
+        try:
+            messages = [
+                {"role": "system", "content": "You are a scientific knowledge extraction system that extracts structured information from papers."},
+                {"role": "user", "content": prompt}
+            ]
+            response_data = await self.llm_provider.generate(messages)
+            return response_data["content"]
+        except Exception as e:
+            logger.error(f"Error generating text: {str(e)}")
+            return ""
+        
     async def extract_knowledge(self, paper: ExtractedPaper) -> Dict[str, Any]:
         """
         Extract structured knowledge from a scientific paper.
@@ -143,7 +168,7 @@ class KnowledgeExtractor:
             """
             
             # Get response from LLM
-            response = await self.llm_provider.generate_text(prompt)
+            response = await self.generate_text(prompt)
             
             # Parse response to extract entities
             try:
@@ -260,7 +285,7 @@ class KnowledgeExtractor:
             """
             
             # Get response from LLM
-            response = await self.llm_provider.generate_text(prompt)
+            response = await self.generate_text(prompt)
             
             # Parse response to extract relations
             try:
@@ -326,7 +351,7 @@ class KnowledgeExtractor:
             """
             
             # Get response from LLM
-            response = await self.llm_provider.generate_text(prompt)
+            response = await self.generate_text(prompt)
             
             # Parse response to extract claims
             try:
@@ -387,7 +412,7 @@ class KnowledgeExtractor:
             """
             
             # Get response from LLM
-            response = await self.llm_provider.generate_text(prompt)
+            response = await self.generate_text(prompt)
             
             # Parse response to extract findings
             try:
@@ -454,7 +479,7 @@ class KnowledgeExtractor:
             """
             
             # Get response from LLM
-            response = await self.llm_provider.generate_text(prompt)
+            response = await self.generate_text(prompt)
             
             # Parse response to extract methods
             try:

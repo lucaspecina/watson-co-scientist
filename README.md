@@ -90,9 +90,34 @@ OPENAI_API_KEY=your_openai_api_key
 
 # Web Search (optional)
 BING_SEARCH_API_KEY=your_bing_search_api_key
+TAVILY_API_KEY=your_tavily_api_key
 ```
 
 Note: The environment variable names have been updated to match Azure OpenAI's standard naming conventions.
+
+### Optional Dependencies
+
+The Watson Co-Scientist system includes a powerful Paper Knowledge Extraction System that benefits from several optional dependencies:
+
+1. **PyMuPDF (fitz)**: Enhances PDF processing capabilities for more accurate text and structure extraction
+   ```bash
+   pip install PyMuPDF
+   ```
+
+2. **Tesseract OCR**: Enables text extraction from images and figures in papers
+   ```bash
+   pip install pytesseract
+   # Also requires Tesseract to be installed on the system
+   # macOS: brew install tesseract
+   # Ubuntu: apt-get install tesseract-ocr
+   ```
+
+3. **OpenCV**: Provides advanced image processing for figure extraction and analysis
+   ```bash
+   pip install opencv-python
+   ```
+
+The system implements graceful degradation if these dependencies are not available, but installing them will significantly enhance the paper extraction capabilities.
 
 ### Configuration
 
@@ -384,13 +409,15 @@ The Watson Co-Scientist follows a systematic approach to scientific hypothesis g
      - **Paper Knowledge Extraction**: Processing full papers beyond abstracts
      - **Knowledge Graph Construction**: Building a graph of entities and relationships
 
-7. **Scientific Paper Processing**
-   - The Paper Knowledge Extraction System enables deeper literature understanding:
-     - **PDF Retrieval**: Downloads papers from various scientific sources
-     - **Content Extraction**: Processes text, figures, tables, and citations
-     - **Knowledge Extraction**: Identifies entities, relations, and findings
-     - **Knowledge Graph Integration**: Connects concepts across multiple papers
-     - **Hypothesis Enhancement**: Grounds hypotheses in specific papers and findings
+7. **Advanced Scientific Paper Processing**
+   - The Paper Knowledge Extraction System enables comprehensive literature understanding:
+     - **Multi-Source PDF Retrieval**: Downloads papers from ArXiv, PubMed, Nature, Science, etc. with specialized handlers for each source
+     - **Structured Content Extraction**: Processes text, figures, tables, equations, and citations with hierarchical section organization
+     - **LLM-Powered Knowledge Extraction**: Uses large language models to identify key scientific entities, relationships, findings, and methodologies
+     - **Dynamic Knowledge Graph Construction**: Builds and maintains a graph of scientific concepts and their relationships across multiple papers
+     - **Entity Deduplication**: Identifies and merges similar scientific concepts using semantic similarity
+     - **Knowledge-Enhanced Evolution**: Leverages paper knowledge graphs to improve hypothesis quality with literature-grounded insights
+     - **Path Finding**: Discovers novel connections between scientific concepts that may not be explicitly stated in any single paper
 
 8. **Research Synthesis and Reporting**
    - The Meta-review Agent synthesizes results for the scientist:

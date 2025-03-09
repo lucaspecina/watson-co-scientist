@@ -23,10 +23,10 @@ async def run_system_test():
     Run a comprehensive test of the entire system.
     """
     # Create a clean test directory
-    test_dir = "data_test_full"
+    test_dir = "tests/data/test_run_temp"
     if os.path.exists(test_dir):
         shutil.rmtree(test_dir)
-    Path(test_dir).mkdir(exist_ok=True)
+    Path(test_dir).mkdir(parents=True, exist_ok=True)
     
     # Initialize system
     system = CoScientistSystem(config_name="default", data_dir=test_dir)

@@ -55,6 +55,9 @@ class EvolutionAgent(BaseAgent):
         """
         super().__init__("evolution", config)
         
+        # Store config for later use
+        self.config = config
+        
         # Initialize web search tool if enabled
         self.web_search = None
         if config.web_search_enabled:
@@ -98,7 +101,7 @@ class EvolutionAgent(BaseAgent):
             }
             
             # Create extraction manager
-            self.extraction_manager = PaperExtractionManager(extraction_config, llm_provider=self.llm)
+            self.extraction_manager = PaperExtractionManager(extraction_config, llm_provider=self.llm_provider)
             
             # Configure knowledge graph
             graph_config = {

@@ -26,7 +26,7 @@ async def test_run():
     """Run a test of the verification analysis capability."""
     
     # Initialize system
-    system = CoScientistSystem(config_name="default", data_dir="data_test")
+    system = CoScientistSystem(config_name="default", data_dir="tests/data/small_dataset")
     
     # Define a test research goal
     research_goal_text = "Investigate the potential role of mitochondrial dysfunction in neurodegenerative diseases."

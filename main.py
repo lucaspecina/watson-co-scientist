@@ -29,6 +29,7 @@ async def main_async():
     parser = argparse.ArgumentParser(description="Watson Co-Scientist: AI system to assist in scientific research")
     parser.add_argument("--research_goal", type=str, help="The research goal to analyze")
     parser.add_argument("--config", type=str, default="default", help="Configuration to use")
+    parser.add_argument("--run", type=int, help="Number of iterations to run")
     args = parser.parse_args()
     
     try:
@@ -38,6 +39,26 @@ async def main_async():
         # If a research goal was provided, analyze it
         if args.research_goal:
             await system.analyze_research_goal(args.research_goal)
+            
+            # If run iterations were specified, run them
+            if args.run and args.run > 0:
+                logger.info(f"Running {args.run} iteration(s)...")
+                for i in range(args.run):
+                    logger.info(f"Starting iteration {i+1}/{args.run}")
+                    state = await system.run_iteration()
+                    logger.info(f"Completed iteration {i+1}/{args.run}")
+                    logger.info(f"  Hypotheses: {state['num_hypotheses']}")
+                    logger.info(f"  Reviews: {state['num_reviews']}")
+                    logger.info(f"  Tournament matches: {state['num_tournament_matches']}")
+                    
+                # Generate a research overview after all iterations
+                logger.info("Generating research overview...")
+                overview = await system._generate_research_overview()
+                if overview:
+                    logger.info(f"Research overview generated: {overview.title}")
+                    logger.info(f"Research areas: {len(overview.research_areas)}")
+                else:
+                    logger.info("No research overview generated")
         else:
             # Otherwise start interactive mode
             await system.start_interactive_mode()

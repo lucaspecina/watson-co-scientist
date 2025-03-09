@@ -28,7 +28,7 @@ async def test_run():
     """Run a simple test of the enhanced verification features."""
     
     # Initialize system
-    system = CoScientistSystem(config_name="default", data_dir="data_test")
+    system = CoScientistSystem(config_name="default", data_dir="tests/data/small_dataset")
     
     # Define a test research goal focusing on complex hypothesis verification
     research_goal_text = """

@@ -41,9 +41,26 @@ class SystemConfig(BaseModel):
     tournament_iterations: int = Field(5, description="Number of iterations for tournaments")
     max_hypotheses: int = Field(100, description="Maximum number of hypotheses to generate")
     literature_search_depth: int = Field(5, description="Number of literature results to fetch per query")
+    domain_knowledge: Dict[str, Any] = Field(default_factory=dict, description="Domain knowledge configuration")
     
     # Add dynamic attributes for runtime use
     model_config = {"extra": "allow"}
+    
+    def get(self, key: str, default: Any = None) -> Any:
+        """
+        Get a configuration value with a fallback default.
+        
+        Args:
+            key: The configuration key to retrieve
+            default: Default value if key is not found
+            
+        Returns:
+            The configuration value or default
+        """
+        try:
+            return getattr(self, key)
+        except AttributeError:
+            return default
     
 def load_default_config() -> Dict[str, Any]:
     """
