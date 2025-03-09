@@ -378,7 +378,7 @@ class CoScientistSystem:
     
     async def start_interactive_mode(self) -> None:
         """Start the system in interactive mode."""
-        print("Welcome to Watson Co-Scientist interactive mode!")
+        print("Welcome to Raul Co-Scientist interactive mode!")
         print("Enter a research goal to begin, or type 'help' for available commands.")
         
         # Default user ID for the current session
@@ -1006,7 +1006,7 @@ class CoScientistSystem:
     
     def _print_help(self) -> None:
         """Print help information."""
-        print("\n============ WATSON CO-SCIENTIST COMMANDS ============")
+        print("\n============ RAUL CO-SCIENTIST COMMANDS ============")
         
         print("\nResearch & Session Commands:")
         print("  goal: <text>       - Set a new research goal")

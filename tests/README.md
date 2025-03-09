@@ -1,6 +1,6 @@
-# Watson Co-Scientist Tests
+# Raul Co-Scientist Tests
 
-This directory contains tests for the Watson Co-Scientist system.
+This directory contains tests for the Raul Co-Scientist system.
 
 ## Directory Structure
 

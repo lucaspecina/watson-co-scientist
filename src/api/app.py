@@ -1,5 +1,5 @@
 """
-FastAPI application for Watson Co-Scientist API.
+FastAPI application for Raul Co-Scientist API.
 """
 
 import os
@@ -26,8 +26,8 @@ from ..config.config import load_config
 
 # Initialize the FastAPI app
 app = FastAPI(
-    title="Watson Co-Scientist API",
-    description="API for the Watson Co-Scientist system",
+    title="Raul Co-Scientist API",
+    description="API for the Raul Co-Scientist system",
     version="0.1.0"
 )
 
@@ -234,9 +234,9 @@ async def run_iterations_task(iterations: int = 1):
 async def root():
     """Root endpoint that returns basic information about the API."""
     return {
-        "name": "Watson Co-Scientist API",
+        "name": "Raul Co-Scientist API",
         "version": "0.1.0",
-        "description": "API for the Watson Co-Scientist system"
+        "description": "API for the Raul Co-Scientist system"
     }
 
 @app.post("/research_goal", response_model=ResearchGoalResponse, tags=["Research"])

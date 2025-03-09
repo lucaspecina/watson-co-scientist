@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test script to run the Watson Co-Scientist system with a specified research goal.
+Test script to run the Raul Co-Scientist system with a specified research goal.
 """
 
 import asyncio
@@ -22,7 +22,7 @@ async def main():
     """Run a test of the system with a specified research goal."""
     # Set up logging
     logger = setup_logger()
-    logger.info("Starting Watson Co-Scientist test run")
+    logger.info("Starting Raul Co-Scientist test run")
     
     # Initialize the system
     system = CoScientistSystem()

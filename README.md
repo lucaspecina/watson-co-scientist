@@ -1,4 +1,4 @@
-# Watson Co-Scientist
+# Raul Co-Scientist
 
 An AI system that assists scientists in generating, refining, and testing research hypotheses. This system serves as a collaborative partner, enhancing scientists' ability to explore complex scientific problems efficiently through multi-database scientific knowledge integration.
 
@@ -68,8 +68,8 @@ The system employs a multi-agent architecture integrated within an asynchronous 
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/watson-co-scientist.git
-cd watson-co-scientist
+git clone https://github.com/yourusername/raul-co-scientist.git
+cd raul-co-scientist
 
 # Create and activate a conda environment
 conda create -n co_scientist python=3.11
@@ -102,7 +102,7 @@ Note: The environment variable names have been updated to match Azure OpenAI's s
 
 ### Optional Dependencies
 
-The Watson Co-Scientist system includes a powerful Paper Knowledge Extraction System that benefits from several optional dependencies:
+The Raul Co-Scientist system includes a powerful Paper Knowledge Extraction System that benefits from several optional dependencies:
 
 1. **PyMuPDF (fitz)**: Enhances PDF processing capabilities for more accurate text and structure extraction
    ```bash
@@ -368,7 +368,7 @@ print(f"Hypotheses generated: {state['num_hypotheses']}")
 ### Project Structure
 
 ```
-watson-co-scientist/
+raul-co-scientist/
 ├── main.py                 # Main entry point
 ├── api_server.py           # API server script
 ├── requirements.txt        # Dependencies
@@ -394,9 +394,9 @@ pytest tests/
 
 ## System Functionality
 
-### How the Watson Co-Scientist Works
+### How the Raul Co-Scientist Works
 
-The Watson Co-Scientist follows a systematic approach to scientific hypothesis generation and evaluation:
+The Raul Co-Scientist follows a systematic approach to scientific hypothesis generation and evaluation:
 
 1. **Research Goal Specification**
    - The process begins with a research goal specified by a scientist in natural language
