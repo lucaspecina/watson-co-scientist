@@ -47,6 +47,7 @@ The system employs a multi-agent architecture integrated within an asynchronous 
 
 - **Scientist-in-the-loop**: The system is designed for collaboration with scientists, allowing them to guide the process
 - **Multi-agent architecture**: Specialized agents work together to generate, evaluate, and refine hypotheses
+- **Session persistence**: Support for resuming research sessions across multiple days or sessions
 - **Iterative improvement**: The system continuously refines hypotheses based on feedback and evaluation
 - **Deep verification capabilities**: Rigorous assessment of hypotheses through causal reasoning, assumption analysis, and probabilistic evaluation
 - **Computational simulation**: Modeling of hypotheses to test predictions, analyze sensitivity to parameters, and identify emergent properties
@@ -140,6 +141,15 @@ python main.py
 
 # Analyze a specific research goal
 python main.py --research_goal "Investigate the molecular mechanisms of protein misfolding in neurodegenerative diseases."
+
+# Run a specific number of iterations on a new research goal
+python main.py --research_goal "Investigate the role of mitochondrial dysfunction in neurodegenerative diseases" --run 3
+
+# List all existing research goals
+python main.py --list_goals
+
+# Resume an existing research session by its ID
+python main.py --resume_id 64fd67eb-05a2-4e32-8dcc-cc63170d66ab --run 2
 
 # Use a specific configuration
 python main.py --config custom_config
@@ -433,6 +443,8 @@ The Watson Co-Scientist follows a systematic approach to scientific hypothesis g
      - Provide manual reviews of system-generated hypotheses
      - Contribute their own hypotheses to the tournament
      - Direct the system to explore specific research directions
+     - Resume sessions across multiple research periods
+     - Pick up where they left off with all context preserved
      - Integrate their expertise with the system's capabilities
 
 ### Example System Workflow

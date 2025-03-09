@@ -115,23 +115,7 @@ class CoScientistSystem:
         self.db.research_goals.save(self.current_research_goal)
         
         # Initialize domain knowledge for this research goal
-        try:
-            # Detect relevant domains for this research goal
-            domain_info = self.cross_domain_synthesizer.detect_research_domains(research_goal_text)
-            relevant_domains = [domain for domain, score in domain_info if score > 0.4]
-            
-            if relevant_domains:
-                logger.info(f"Detected relevant domains for research goal: {', '.join(relevant_domains)}")
-                # Initialize domain knowledge providers for these domains
-                await self.domain_knowledge.initialize(domains=relevant_domains)
-            else:
-                # Fall back to default domains if none detected
-                default_domains = ["biomedicine", "biology", "chemistry"]
-                logger.info(f"Using default domains: {', '.join(default_domains)}")
-                await self.domain_knowledge.initialize(domains=default_domains)
-                
-        except Exception as e:
-            logger.warning(f"Error initializing domain knowledge: {e}")
+        relevant_domains = await self._initialize_domain_knowledge(research_goal_text)
         
         # Initialize state
         self.current_state = {
@@ -142,7 +126,7 @@ class CoScientistSystem:
             "top_hypotheses": [],
             "iterations_completed": 0,
             "last_research_overview_id": None,
-            "relevant_domains": relevant_domains if 'relevant_domains' in locals() else []
+            "relevant_domains": relevant_domains
         }
         
         # Initialize agent weights
@@ -158,6 +142,105 @@ class CoScientistSystem:
         
         logger.info(f"Initialized system for research goal {self.current_research_goal.id}")
         return self.current_research_goal
+        
+    async def _initialize_domain_knowledge(self, research_goal_text: str) -> List[str]:
+        """
+        Initialize domain knowledge for a research goal.
+        
+        Args:
+            research_goal_text (str): The research goal text.
+            
+        Returns:
+            List[str]: List of relevant domains.
+        """
+        relevant_domains = []
+        try:
+            # Detect relevant domains for this research goal
+            domain_info = self.cross_domain_synthesizer.detect_research_domains(research_goal_text)
+            relevant_domains = [domain for domain, score in domain_info if score > 0.4]
+            
+            if relevant_domains:
+                logger.info(f"Detected relevant domains for research goal: {', '.join(relevant_domains)}")
+                # Initialize domain knowledge providers for these domains
+                await self.domain_knowledge.initialize(domains=relevant_domains)
+            else:
+                # Fall back to default domains if none detected
+                default_domains = ["biomedicine", "biology", "chemistry"]
+                logger.info(f"Using default domains: {', '.join(default_domains)}")
+                await self.domain_knowledge.initialize(domains=default_domains)
+                relevant_domains = default_domains
+                
+        except Exception as e:
+            logger.warning(f"Error initializing domain knowledge: {e}")
+            
+        return relevant_domains
+        
+    async def load_research_goal(self, goal_id: str) -> Optional[ResearchGoal]:
+        """
+        Load an existing research goal from the database.
+        
+        Args:
+            goal_id (str): The ID of the research goal to load.
+            
+        Returns:
+            Optional[ResearchGoal]: The loaded research goal, or None if not found.
+        """
+        research_goal = self.db.research_goals.get(goal_id)
+        
+        if not research_goal:
+            logger.error(f"Research goal with ID {goal_id} not found")
+            return None
+            
+        self.current_research_goal = research_goal
+        
+        # Parse the research goal to rebuild the configuration
+        self.research_plan_config = await self.supervisor.parse_research_goal(research_goal.text)
+        
+        # Initialize domain knowledge for this research goal
+        relevant_domains = await self._initialize_domain_knowledge(research_goal.text)
+        
+        # Count existing entities related to this goal
+        all_hypotheses = self.db.hypotheses.get_all()
+        all_reviews = self.db.reviews.get_all()
+        all_matches = self.db.tournament_matches.get_all()
+        
+        # Filter items related to this goal
+        goal_hypotheses = [h for h in all_hypotheses if getattr(h, 'metadata', {}).get('research_goal_id') == goal_id]
+        
+        # Get hypothesis IDs for filtering
+        hypothesis_ids = [h.id for h in goal_hypotheses]
+        
+        # Filter reviews by hypothesis ID
+        goal_reviews = [r for r in all_reviews if r.hypothesis_id in hypothesis_ids]
+        
+        # Filter matches by hypothesis ID
+        goal_matches = [m for m in all_matches if m.hypothesis1_id in hypothesis_ids or m.hypothesis2_id in hypothesis_ids]
+        
+        # Initialize state
+        self.current_state = {
+            "num_hypotheses": len(goal_hypotheses),
+            "num_reviews": len(goal_reviews),
+            "num_tournament_matches": len(goal_matches),
+            "num_protocols": 0,
+            "top_hypotheses": [],
+            "iterations_completed": 0,
+            "last_research_overview_id": None,
+            "relevant_domains": relevant_domains
+        }
+        
+        # Update top hypotheses
+        sorted_hypotheses = sorted(goal_hypotheses, key=lambda h: h.elo_rating if h.elo_rating is not None else 1200, reverse=True)
+        self.current_state["top_hypotheses"] = [h.id for h in sorted_hypotheses[:10]]
+        
+        # Re-plan agent weights for this state
+        self.agent_weights = await self.supervisor.plan_task_allocation(
+            self.current_research_goal,
+            self.research_plan_config,
+            self.current_state
+        )
+        
+        logger.info(f"Loaded research goal {goal_id} with {len(goal_hypotheses)} hypotheses and {len(goal_reviews)} reviews")
+        return research_goal
     
     async def run_iteration(self) -> Dict[str, Any]:
         """
