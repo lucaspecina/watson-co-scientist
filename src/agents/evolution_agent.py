@@ -69,11 +69,13 @@ class EvolutionAgent(BaseAgent):
         # Initialize paper extraction and knowledge graph components
         self.extraction_manager = None
         self.knowledge_graph = None
-        self._initialize_paper_extraction_system()
         
         # Track available ontologies
         self.ontologies = {}
         self._load_ontologies()
+        
+        # IMPORTANT: Initialize paper extraction after llm_provider is set
+        self._initialize_paper_extraction_system()
         
         # Evolution strategies with weights (for random selection)
         self.evolution_strategies = {
@@ -94,14 +96,24 @@ class EvolutionAgent(BaseAgent):
             if not paper_extraction_enabled:
                 logger.info("Paper extraction system is disabled. Skipping initialization.")
                 return
+            
+            # Make sure we have an LLM provider available - use the one from BaseAgent
+            if not hasattr(self, 'llm_provider') or self.llm_provider is None:
+                logger.warning("LLM provider not initialized for paper extraction. Will initialize without LLM provider.")
+                has_llm = False
+            else:
+                has_llm = True
                 
             # Configure extraction manager
             extraction_config = {
                 'base_dir': self.config.get("paper_extraction_dir", "data/papers_db")
             }
             
-            # Create extraction manager
-            self.extraction_manager = PaperExtractionManager(extraction_config, llm_provider=self.llm_provider)
+            # Create extraction manager with or without LLM provider
+            if has_llm:
+                self.extraction_manager = PaperExtractionManager(extraction_config, llm_provider=self.llm_provider)
+            else:
+                self.extraction_manager = PaperExtractionManager(extraction_config)
             
             # Configure knowledge graph
             graph_config = {
@@ -1291,10 +1303,11 @@ class EvolutionAgent(BaseAgent):
         try:
             # Search for relevant entities
             for term in key_terms:
-                entities = self.knowledge_graph.find_entities(term, limit=3)
+                entities = self.knowledge_graph.find_entities_by_name(term, partial_match=True)
                 
                 for entity in entities:
-                    entity_id = entity['id'] if isinstance(entity, dict) else entity
+                    # Handle entity object or dict
+                    entity_id = entity.id if hasattr(entity, 'id') else entity.get('id') if isinstance(entity, dict) else entity
                     
                     # Skip if we've already processed this entity
                     if entity_id in entity_insights:
@@ -1306,43 +1319,108 @@ class EvolutionAgent(BaseAgent):
                         continue
                         
                     # Get relations for this entity
-                    relations = self.knowledge_graph.get_entity_relations(entity_id, limit=5)
+                    # Get all relations and then limit manually
+                    relations = self.knowledge_graph.get_entity_relations(entity_id)
+                    relations = relations[:5] if relations else []
                     
-                    # Format entity information
+                    # Format entity information - handling Relation objects
                     relation_text = ""
                     if relations:
-                        relation_text = "\n".join([
-                            f"- {rel['relation_type']}: {rel['target_entity']} (from {rel['source']})"
-                            for rel in relations[:5]
-                        ])
+                        relation_lines = []
+                        for rel in relations:
+                            if hasattr(rel, 'type'):
+                                # It's a Relation object
+                                rel_type = rel.type
+                                target_entity = rel.target_id
+                                source = "paper" if hasattr(rel, 'papers') and rel.papers else "knowledge graph"
+                            elif isinstance(rel, dict):
+                                # It's a dictionary
+                                rel_type = rel.get('relation_type', rel.get('type', 'relates_to'))
+                                target_entity = rel.get('target_entity', rel.get('target_id', 'unknown'))
+                                source = rel.get('source', 'knowledge graph')
+                            else:
+                                # Unknown format - skip
+                                continue
+                                
+                            relation_lines.append(f"- {rel_type}: {target_entity} (from {source})")
+                            
+                        relation_text = "\n".join(relation_lines)
                     
-                    # Add to insights
+                    # Add to insights - handle Entity objects
+                    if hasattr(entity_data, 'name') and hasattr(entity_data, 'definition'):
+                        # It's an Entity object
+                        entity_name = entity_data.name
+                        entity_description = entity_data.definition
+                    else:
+                        # Assume it's a dict
+                        entity_name = entity_data.get("name", entity_id) if isinstance(entity_data, dict) else entity_id
+                        entity_description = entity_data.get("description", "") if isinstance(entity_data, dict) else ""
+                        
                     entity_insights[entity_id] = {
-                        "name": entity_data.get("name", entity_id),
-                        "description": entity_data.get("description", ""),
+                        "name": entity_name,
+                        "description": entity_description,
                         "relations": relation_text
                     }
                     
-                    # Find related papers for this entity
-                    entity_papers = self.knowledge_graph.find_papers_with_entity(entity_id, limit=2)
-                    for paper in entity_papers:
-                        if paper not in related_papers:
-                            related_papers.append(paper)
+                    # Find related papers for this entity - use get_entity_papers if available
+                    if hasattr(self.knowledge_graph, 'get_entity_papers'):
+                        entity_papers = self.knowledge_graph.get_entity_papers(entity_id)
+                        # Just get the first two papers to limit results
+                        entity_papers = entity_papers[:2] if entity_papers else []
+                        
+                        for paper in entity_papers:
+                            paper_id = paper.id if hasattr(paper, 'id') else paper.get('id') if isinstance(paper, dict) else paper
+                            if paper_id not in related_papers:
+                                related_papers.append(paper_id)
+                    # Legacy compatibility
+                    elif hasattr(self.knowledge_graph, 'find_papers_with_entity'):
+                        entity_papers = self.knowledge_graph.find_papers_with_entity(entity_id, limit=2)
+                        for paper in entity_papers:
+                            if paper not in related_papers:
+                                related_papers.append(paper)
             
-            # Create a citation for each related paper
+            # Create a citation for each related paper - handle Paper objects
             for paper_id in related_papers:
                 paper_data = self.knowledge_graph.get_paper(paper_id)
                 if paper_data:
-                    # Extract paper information
-                    citation = Citation(
-                        title=paper_data.get("title", "Unknown"),
-                        authors=paper_data.get("authors", []),
-                        year=paper_data.get("year", ""),
-                        journal=paper_data.get("journal", ""),
-                        url=paper_data.get("url", ""),
-                        snippet=paper_data.get("abstract", "")[:200],
-                        source="knowledge_graph"
-                    )
+                    if hasattr(paper_data, 'title') and hasattr(paper_data, 'authors') and hasattr(paper_data, 'abstract'):
+                        # It's a Paper object
+                        # Make sure year is either an integer or None for Citation
+                        year_value = None
+                        if hasattr(paper_data, 'year') and paper_data.year:
+                            try:
+                                year_value = int(paper_data.year)
+                            except (ValueError, TypeError):
+                                year_value = None
+                                
+                        citation = Citation(
+                            title=paper_data.title,
+                            authors=paper_data.authors,
+                            year=year_value,  # Must be int or None
+                            journal="",  # Paper object might not have journal attribute
+                            url=paper_data.url if hasattr(paper_data, 'url') else "",
+                            snippet=paper_data.abstract[:200] if paper_data.abstract else "",
+                            source="knowledge_graph"
+                        )
+                    else:
+                        # Assume it's a dict - ensure year is int or None
+                        year_value = None
+                        raw_year = paper_data.get("year")
+                        if raw_year:
+                            try:
+                                year_value = int(raw_year)
+                            except (ValueError, TypeError):
+                                year_value = None
+                        
+                        citation = Citation(
+                            title=paper_data.get("title", "Unknown"),
+                            authors=paper_data.get("authors", []),
+                            year=year_value,  # Must be int or None
+                            journal=paper_data.get("journal", ""),
+                            url=paper_data.get("url", ""),
+                            snippet=paper_data.get("abstract", "")[:200] if paper_data.get("abstract") else "",
+                            source="knowledge_graph"
+                        )
                     citations.append(citation)
             
             # Find paths between entities to reveal relationships
