@@ -38,12 +38,16 @@ The system employs a multi-agent architecture integrated within an asynchronous 
   - Direct integration with PubMed, ArXiv, PubChem, UniProt, and other scientific databases
   - Cross-domain knowledge synthesis across multiple sources
   - Domain-specific knowledge retrieval and citation formatting
+  - Knowledge Synthesizer for consolidating information from diverse sources
+  - Intelligent source prioritization and relevance scoring
 
 - **Advanced Knowledge Processing**:
   - Multi-domain concurrent search and retrieval
   - Automatic domain detection for research questions
   - Cross-domain relationship mapping for interdisciplinary research
   - Dynamic knowledge weighting based on research context
+  - Knowledge synthesis with key concept extraction and connection detection
+  - Scientific entity and relationship discovery across multiple sources
 
 - **Scientist-in-the-loop**: The system is designed for collaboration with scientists, allowing them to guide the process
 - **Multi-agent architecture**: Specialized agents work together to generate, evaluate, and refine hypotheses
@@ -428,6 +432,7 @@ The Watson Co-Scientist follows a systematic approach to scientific hypothesis g
      - **Domain Knowledge Integration**: Grounding in specialized scientific knowledge
      - **Cross-domain Inspiration**: Applying concepts from other scientific fields
      - **Knowledge Graph Enhancement**: Using extracted scientific literature connections
+     - **Knowledge Synthesis**: Consolidating information from multiple scientific sources
      - **Out-of-box Thinking**: Generating unconventional alternatives
      - **Simplification**: Improving clarity while preserving core ideas
      - **Combination**: Merging strengths of multiple hypotheses

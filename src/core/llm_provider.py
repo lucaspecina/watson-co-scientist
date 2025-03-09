@@ -32,6 +32,41 @@ class LLMProvider(ABC):
             Dict[str, Any]: The model's response.
         """
         pass
+        
+    async def generate_text(self,
+                         prompt: str,
+                         system_prompt: str = "You are a helpful assistant.",
+                         temperature: Optional[float] = None,
+                         max_tokens: Optional[int] = None,
+                         model: Optional[str] = None) -> str:
+        """
+        Generate text from a prompt using a simplified interface.
+        
+        Args:
+            prompt (str): The prompt to send to the model.
+            system_prompt (str, optional): The system prompt to use.
+            temperature (Optional[float], optional): The temperature to use.
+            max_tokens (Optional[int], optional): Maximum number of tokens to generate.
+            model (Optional[str], optional): Override model name (not used for all providers).
+            
+        Returns:
+            str: The generated text.
+        """
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": prompt}
+        ]
+        
+        try:
+            response = await self.generate(
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens
+            )
+            return response["content"]
+        except Exception as e:
+            logger.error(f"Error generating text: {e}")
+            return f"Error generating text: {str(e)}"
     
     @classmethod
     def create_provider(cls, config: ModelConfig) -> 'LLMProvider':
