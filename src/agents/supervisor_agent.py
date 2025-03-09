@@ -441,3 +441,46 @@ class SupervisorAgent(BaseAgent):
             
             # Default to not terminating in case of error
             return False, "Error evaluating termination condition"
+            
+    async def extract_keywords(self, text: str) -> List[str]:
+        """
+        Extract relevant keywords from a text for use in research focus areas.
+        
+        Args:
+            text (str): The text to extract keywords from.
+            
+        Returns:
+            List[str]: A list of relevant keywords.
+        """
+        prompt = f"""
+        Extract the most important and relevant scientific keywords from the following text.
+        These keywords will be used to index and categorize this research focus area.
+        Focus on domain-specific technical terms, scientific concepts, and precise terminology.
+        
+        Text:
+        {text}
+        
+        Return a JSON array of 5-10 keywords, ordered by relevance. Do not include any explanations,
+        just the JSON array of keywords.
+        
+        Example response format:
+        ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"]
+        """
+        
+        response = await self.generate(prompt)
+        
+        try:
+            # Extract JSON array
+            if "[" in response and "]" in response:
+                json_content = response[response.find("["):response.rfind("]")+1]
+                keywords = json.loads(json_content)
+                return keywords
+            else:
+                # Fall back to splitting by commas and cleanup if JSON parsing fails
+                keywords = [k.strip().strip('"\'') for k in response.split(",")]
+                return [k for k in keywords if k]
+        except Exception as e:
+            logger.error(f"Error extracting keywords: {e}")
+            # Return some basic keywords extracted from the text
+            words = text.split()
+            return [w for w in words if len(w) > 4][:5]

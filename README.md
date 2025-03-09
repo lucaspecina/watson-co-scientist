@@ -159,15 +159,36 @@ python main.py --config custom_config
 
 When running in interactive mode, you can use the following commands:
 
+##### Research & Session Commands
 - `goal: <text>` - Set a new research goal
 - `run` - Run 1 iteration
 - `run <N>` - Run N iterations
 - `state` - Print the current system state
 - `overview` - Generate and print a research overview
-- `protocols` - Show generated experimental protocols
-- `generate-protocol` - Generate an experimental protocol for a top hypothesis
+
+##### Hypothesis Management
+- `hypotheses` - List all hypotheses, sorted by rating
+- `hypothesis:ID` - View detailed information about a specific hypothesis
+- `add-hypothesis:<text>` - Add your own hypothesis
+- `feedback:ID <text>` - Provide feedback on a specific hypothesis
+- `evolve:ID` - Request evolution of a specific hypothesis
+
+##### Research Focus & Resources
+- `focus: <text>` - Add a research focus area to guide exploration
+- `focus-areas` - List all active research focus areas
+- `resource: <url/text>` - Add a resource (paper, URL, description)
+- `feedback` - List all feedback provided
+
+##### Protocol Management
+- `protocols` - List all experimental protocols
+- `protocol:ID` - Generate a protocol for a specific hypothesis
+- `generate-protocol` - Generate a protocol for a top hypothesis
+
+##### Knowledge Search & Synthesis
 - `search: <query>` - Search scientific databases across domains
-- `synthesize: <query>` - Synthesize knowledge across multiple scientific domains
+- `synthesize: <query>` - Synthesize knowledge across scientific domains
+
+##### System
 - `help` - Show help information
 - `exit` or `quit` - Exit the program
 

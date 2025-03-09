@@ -97,8 +97,22 @@ class EvolutionAgent(BaseAgent):
                 logger.info("Paper extraction system is disabled. Skipping initialization.")
                 return
             
-            # Make sure we have an LLM provider available - use the one from BaseAgent
-            if not hasattr(self, 'llm_provider') or self.llm_provider is None:
+            # Get the LLM provider from the main system if available
+            system_llm_provider = None
+            
+            # Try to access the system's LLM provider by looking at the config
+            if hasattr(self.config, 'system') and self.config.system:
+                if hasattr(self.config.system, 'llm_provider'):
+                    system_llm_provider = self.config.system.llm_provider
+                    logger.info("Using system's LLM provider for paper extraction")
+            
+            # Use our own LLM provider as fallback
+            if system_llm_provider is None and hasattr(self, 'llm_provider') and self.llm_provider:
+                system_llm_provider = self.llm_provider
+                logger.info("Using Evolution agent's LLM provider for paper extraction")
+            
+            # Check if we have any LLM provider available
+            if system_llm_provider is None:
                 logger.warning("LLM provider not initialized for paper extraction. Will initialize without LLM provider.")
                 has_llm = False
             else:
@@ -111,7 +125,7 @@ class EvolutionAgent(BaseAgent):
             
             # Create extraction manager with or without LLM provider
             if has_llm:
-                self.extraction_manager = PaperExtractionManager(extraction_config, llm_provider=self.llm_provider)
+                self.extraction_manager = PaperExtractionManager(extraction_config, llm_provider=system_llm_provider)
             else:
                 self.extraction_manager = PaperExtractionManager(extraction_config)
             
@@ -119,6 +133,9 @@ class EvolutionAgent(BaseAgent):
             graph_config = {
                 'storage_dir': self.config.get("knowledge_graph_dir", "data/knowledge_graph")
             }
+            
+            # Create the storage directory if it doesn't exist
+            os.makedirs(graph_config['storage_dir'], exist_ok=True)
             
             # Load existing knowledge graph if available
             graph_path = os.path.join(graph_config['storage_dir'], "knowledge_graph.json")
