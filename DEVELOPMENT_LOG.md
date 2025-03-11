@@ -1,3 +1,31 @@
+# Original instruction
+
+You are tasked with designing and building an AI co-scientist system to assist human scientists in generating, refining, and testing research hypotheses. This system should serve as a collaborative partner, enhancing scientists' ability to explore complex scientific problems efficiently. It must be flexible, adaptable across various scientific domains (e.g., biology, chemistry, physics), and capable of integrating with external tools and data sources. The system will interact with scientists through a natural language interface, providing hypotheses, experiment designs, and insights while learning from feedback and experimental results.
+
+BASED ON THE ORIGINAL PAPER THAT'S IN THE ETHOS.md file
+
+YOUR GOAL IS TO CREATE SUCH A SYSTEM FROM SCRATCH.
+
+We should:
+- FOLLOW BEST CODING PRACTICES (well structured, good, modular architecture, reusable things, not too abstract, so on).
+- Develop it an iterative way (from simpler to more complex). 
+- After each "iteration", you should RUN THE SYSTEM FROM SCRATCH to make sure it works correctly.
+- After testing it, we should commit in git the changes. You tell me and I will do it manually (and also analyze the changes).
+
+When you add some files for testing or utilities and so on, do it INSIDE particular folders. Do it in an organized way following best practices, not all in the root.
+
+VERY IMPORTANT: YOU HAVE TO USE THE CONDA ENV: “conda activate co_scientist”
+
+Remember, remove all the unnecessary files and folders in the repo. But if you change big things, we should test the system to see that everything is ok.
+
+FOLLOW BEST PRACTICES but always test that everything is working after major changes!
+
+The models should be run using an AZURE OPENAI service as the default provider. Also include OPENAI, ollama and others as fallbacks. It should be configurable.
+I already have a .env file with the credentials for all of them.
+
+---
+---
+
 # Raul Co-Scientist Development Log
 
 ## Project Overview

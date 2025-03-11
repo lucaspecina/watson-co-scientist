@@ -1,6 +1,5 @@
-You are tasked with designing and building an AI co-scientist system to assist human scientists in generating, refining, and testing research hypotheses. This system should serve as a collaborative partner, enhancing scientists' ability to explore complex scientific problems efficiently. It must be flexible, adaptable across various scientific domains (e.g., biology, chemistry, physics), and capable of integrating with external tools and data sources. The system will interact with scientists through a natural language interface, providing hypotheses, experiment designs, and insights while learning from feedback and experimental results.
 
-Below is the technical definition of the system (based on the paper itself):
+Below is the technical definition of the expected system (based on the paper itself):
 
 Introduction:
 
@@ -367,22 +366,171 @@ The blue boxes indicate the scientist-in-the-loop inputs and feedback. The dark 
 through the co-scientist system, while the red arrows represent the information feedback loop between the specialized agents.
 
 
+
+
+
+
+
+
 ---
-YOUR GOAL IS TO CREATE SUCH A SYSTEM FROM SCRATCH.
+---
 
-We should:
-- FOLLOW BEST CODING PRACTICES (well structured, good, modular architecture, reusable things, not too abstract, so on).
-- Develop it an iterative way (from simpler to more complex). 
-- After each "iteration", you should RUN THE SYSTEM FROM SCRATCH to make sure it works correctly.
-- After testing it, we should commit in git the changes. You tell me and I will do it manually (and also analyze the changes).
 
-When you add some files for testing or utilities and so on, do it INSIDE particular folders. Do it in an organized way following best practices, not all in the root.
 
-VERY IMPORTANT: YOU HAVE TO USE THE CONDA ENV: “conda activate co_scientist”
 
-Remember, remove all the unnecessary files and folders in the repo. But if you change big things, we should test the system to see that everything is ok.
 
-FOLLOW BEST PRACTICES but always test that everything is working after major changes!
 
-The models should be run using an AZURE OPENAI service as the default provider. Also include OPENAI, ollama and others as fallbacks. It should be configurable.
-I already have a .env file with the credentials for all of them.
+
+
+Below is a possible architecture for the solution (it's just an estimate)
+
+Diseño de un Sistema de Investigación Automatizada
+
+Interfaz de Usuario e Interacción Iterativa
+
+El sistema contará con una interfaz interactiva (por ejemplo, un entorno tipo chat web o aplicación de escritorio) donde el asistente de investigación presenta actualizaciones periódicas al usuario. Tras recolectar y analizar información, el sistema entregará resúmenes de hallazgos, hipótesis preliminares y datos relevantes de forma incremental. Cada iteración de resultados incluye un resumen claro de lo encontrado hasta el momento, citas clave y posibles direcciones a seguir.
+
+El usuario permanece en el ciclo de investigación, pudiendo proporcionar retroalimentación después de cada actualización. Por ejemplo, el usuario puede corregir el rumbo (“estos resultados no son relevantes para X, mejor busca Y”) o pedir mayor profundidad en cierto aspecto. Esta colaboración humano-máquina mejora los resultados . Es importante destacar que el usuario no modifica directamente la base de conocimiento interna (no edita la base de datos), sino que guía al sistema con instrucciones. El asistente interpretará este feedback y ajustará sus búsquedas, filtrado de información o hipótesis según las indicaciones del usuario, sin alterar manualmente los datos ya almacenados. Esto garantiza control sobre la dirección de la investigación manteniendo la integridad de la memoria interna.
+
+Para lograr una interacción fluida:
+
+- El sistema presentará la información en lenguaje natural y, de ser útil, en formato de listas o tablas breves, facilitando la comprensión.
+- Cada actualización periódica termina con una pregunta o opción para el usuario (por ejemplo: “¿Desea profundizar en algún aspecto o corregir el rumbo?”), invitando a la retroalimentación.
+- El intervalo de actualización puede ser configurable o desencadenado por eventos (p.ej., después de analizar cierto número de documentos o descubrir algo notable).
+- La interfaz también podrá mostrar visualizaciones de datos o gráficos generados durante la investigación, integrándolos como imágenes en el flujo conversacional cuando el sistema ejecute análisis cuantitativos o de datos. Esto permite una comunicación más rica, por ejemplo mostrando una gráfica de resultados estadísticos relevantes que el asistente haya calculado.
+
+Recuperación de Información desde Múltiples Fuentes
+
+El sistema dispone de un módulo de búsqueda y recopilación de información capaz de acceder a diversas fuentes: internet abierto, repositorios académicos y documentos locales o subidos. Este módulo integrará APIs de búsqueda avanzadas para cubrir distintos dominios:
+
+- Búsqueda web general: Se utilizarán APIs de motores de búsqueda (por ejemplo, Bing Web Search API o Google Custom Search API) para obtener información general actualizada de la web. Esto permite encontrar noticias, blogs, sitios oficiales y datos en internet en respuesta a la consulta del usuario.
+- Literatura científica: Para papers y artículos académicos, el sistema usará APIs especializadas como Semantic Scholar API, CrossRef API o consultas a Google Scholar (posiblemente a través de un servicio como SerpAPI ). Estas APIs permiten buscar por título, palabras clave, autores, etc., y obtener metadatos o enlaces a los artículos. Por ejemplo, se podría enviar una consulta a Semantic Scholar o arXiv API para encontrar los trabajos más relevantes sobre el tema dado.
+- Recuperación de documentos: Una vez obtenidos los enlaces o referencias, el sistema descarga el contenido. Para artículos académicos, esto implicará descargar el PDF del paper (por ejemplo, desde arXiv, Springer o fuentes open access) u obtener el texto HTML. Para resultados web, podría implicar hacer scraping controlado de páginas si la API de búsqueda no provee todo el contenido.
+- OCR para documentos escaneados: Si algunos documentos están en formato imagen o PDF escaneado (por ejemplo, un paper antiguo escaneado o infografías), el sistema aplica OCR (Optical Character Recognition) para extraer el texto. Se pueden usar librerías OCR como Tesseract (open source) o APIs como Google Cloud Vision OCR, según disponibilidad. El OCR convierte las imágenes de texto en texto plano que el sistema pueda procesar.
+- APIs adicionales: El diseño prevé la facilidad de integrar nuevas fuentes. Por ejemplo, una API de bases de datos específicas (PubMed para artículos médicos, IEEE Xplore para papers de ingeniería, etc.) puede incorporarse cuando la investigación lo requiera, a través de conectores modulares.
+
+Estrategia de búsqueda: El asistente formulará internamente consultas basadas en la pregunta del usuario y en hipótesis emergentes. Inicialmente usará palabras clave directas de la consulta. Con el progreso, refinará las búsquedas (incluso usando lenguaje natural) según nuevos términos descubiertos. Por ejemplo, si tras leer un par de papers identifica una sub-temática importante, hará búsquedas más específicas sobre esa sub-temática. Este módulo de búsqueda trabajará en conjunto con el motor LLM para generar consultas óptimas (el LLM puede sugerir keywords relevantes) y con la memoria para evitar duplicar búsquedas ya realizadas.
+
+Almacenamiento de Conocimiento y Memoria a Largo Plazo
+
+Para que el sistema “recuerde” información a lo largo de la sesión, se implementará un almacenamiento de memoria a largo plazo robusto. Dado el alto volumen y variedad de datos (texto de papers, páginas web, notas del usuario, resultados intermedios), la arquitectura usará una combinación de almacenamiento vectorial y estructurado, aprovechando lo mejor de cada enfoque:
+
+- Base de datos vectorial: Se empleará una base de datos de embeddings (por ejemplo FAISS para local o Pinecone como servicio gestionado) para almacenar representaciones semánticas de fragmentos de texto. Cada documento recuperado (paper, artículo web, etc.) se dividirá en trozos manejables (párrafos o secciones), y el sistema generará un embedding vectorial para cada trozo usando un modelo de lenguaje (p.ej., un modelo tipo SBERT o el mismo LLM). Estos embeddings se indexan en la base vectorial junto con metadatos (fuente, título, tags de tema). Esto permite más adelante realizar búsquedas semánticas en la memoria: el asistente puede preguntar a la base vectorial “¿qué fragmentos de lo que he leído se relacionan con X tema?” y recuperar pasajes relevantes incluso si no contienen exactamente las mismas palabras, aprovechando la similitud conceptual. Las bases vectoriales son muy eficientes para este tipo de búsqueda difusa y escalan bien con grandes volúmenes de texto . Este almacenamiento vectorial sirve como memoria episódica de la sesión, acumulando todo el conocimiento textual reunido.
+- Base de conocimiento estructurada / grafo de conocimiento (opcional híbrido): Para complementar la memoria vectorial, el sistema puede construir dinámicamente un grafo de conocimiento a partir de la información recopilada . A medida que el LLM extrae hechos clave y relaciones (por ejemplo, “El estudio A apoya la hipótesis B”, “La molécula X inhibe la reacción Y”), estos se pueden representar como nodos y aristas en un grafo (utilizando una base de datos de grafos como Neo4j o similar). Un grafo de conocimiento preserva las relaciones semánticas y estructurales entre entidades de forma explícita . Por ejemplo, nodos podrían ser conceptos (variables, enfermedades, algoritmos, etc.) o artículos, y se conectan si un artículo menciona una relación entre conceptos. Esto permite consultas como “mostrar todas las evidencias que conectan con la hipótesis Z” o “¿hay relaciones comunes entre X y Y encontradas en diferentes fuentes?”. Integrar un grafo con el sistema proporciona razonamiento simbólico complementario: se puede navegar por conexiones o identificar caminos lógicos entre ideas, cosa difícil de lograr solo con texto plano. En suma, combinar un vector store con un grafo de conocimiento ofrece una memoria más rica, aprovechando tanto la búsqueda por similitud como la exploración por relaciones explícitas (en investigaciones recientes, un enfoque híbrido así mostró mejorar la precisión en respuestas frente a usar solo uno de los métodos ).
+- Almacenamiento tradicional: Además de lo anterior, se usará una base de datos relacional o documental tradicional (por ejemplo, PostgreSQL o MongoDB) para guardar información administrativa de la sesión: la secuencia de iteraciones, feedback del usuario, lista de fuentes consultadas, resúmenes ya presentados, etc. Esta base también puede almacenar los resúmenes generados de cada documento y las hipótesis formuladas en cada etapa, con identificadores. Si la sesión se prolonga por días o es deseable persistir y reanudar más adelante, esta DB relacional permite guardar el estado completo de la investigación (como un historial) y cargarlo en otra ocasión.
+
+Estrategia de memoria: Cada vez que el sistema procesa nueva información, la agregará a estos almacenes. La gestión de la memoria incluye algoritmos para decidir qué conservar con más detalle: por ejemplo, información muy relevante al tema central se almacenará con notas destacadas o nodos en el grafo, mientras que datos tangenciales podrían solo quedar en la base vectorial para búsqueda y no en el resumen principal. Periódicamente, el sistema puede realizar síntesis de memoria: combinar múltiples hallazgos en un resumen consolidado (lo que reduce la carga de prompt al LLM) y almacenar ese resumen marcado como “conocimiento consolidado hasta iteración N”. De esta forma, aunque la sesión sea larga, el sistema no necesitará releer todo cada vez, sino que puede cargar el resumen consolidado más reciente junto con piezas específicas relacionadas a la consulta actual.
+
+Cuando el LLM vaya a generar una nueva respuesta o plan, accederá a la memoria para recuperar tanto hechos relevantes (mediante consultas al vector DB por similitud) como relaciones clave (consultando el grafo o las notas estructuradas) . Esto garantiza que las respuestas nuevas integren la información previa de la sesión. Si el usuario redirige la investigación, la memoria permite volver sobre puntos previos: por ejemplo, “Revisemos aquel paper mencionado al inicio ahora con esta nueva perspectiva”, para lo cual se buscará en la base vectorial ese paper y se reanalizará su contenido bajo la nueva óptica.
+
+Procesamiento, Síntesis y Razonamiento Automatizado
+
+En el corazón del sistema está un motor de procesamiento inteligente basado en un modelo de lenguaje grande (LLM) moderno capaz de comprender texto extenso, realizar razonamiento y generar lenguaje natural. Este motor LLM (por ejemplo, GPT-4 o un modelo de código abierto altamente entrenado como LLaMA 2 con afinación instructiva) cumplirá varios roles críticos: síntesis de información, generación de hipótesis, planificación de la búsqueda, y decisión de acciones (agente).
+
+1. Comprensión y síntesis de documentos: Cada documento obtenido (paper, artículo web, etc.) es procesado por el LLM para extraer sus puntos clave. Dado que un paper puede ser largo, se manejará en trozos: el sistema dividirá el texto en secciones (resumen, introducción, resultados, etc.) y el LLM generará un resumen de cada sección y luego un resumen global. También extraerá metadatos útiles: por ejemplo, métodos, poblaciones estudiadas (en caso de papers científicos), conclusiones principales, y cualquier dato numérico importante. Esta síntesis se almacena en la memoria (p.ej., en la DB relacional y posiblemente como nodos en el grafo de conocimiento). Así, el asistente convierte documentación extensa en conocimiento digerible para su propio uso posterior y para presentar al usuario.
+
+2. Razonamiento lógico e inferencia: El LLM, potenciado con las herramientas de memoria, puede realizar razonamiento sobre la información integrada. Esto incluye comparar resultados de diferentes fuentes, detectar patrones o contradicciones, y generar hipótesis nuevas. Por ejemplo, si dos estudios presentan resultados conflictivos, el sistema puede señalar la discrepancia y hipotetizar razones (diferencias de metodología, etc.). O si se han reunido datos numéricos, puede inferir tendencias (“los datos sugieren que X aumenta cuando Y disminuye”). Estas hipótesis se formulan en lenguaje natural y se guardan, vinculadas a la evidencia de apoyo en la base de conocimiento. El motor LLM seguirá un enfoque tipo cadena de pensamiento (chain-of-thought), evaluando paso a paso las conclusiones que puede sacar, en vez de soltar directamente una respuesta final. Herramientas de prompting como el método ReAct (razonamiento con acciones) se podrían utilizar para que el LLM decida cuándo buscar más información, cuándo resumir o cuándo preguntar al usuario, imitando un proceso reflexivo.
+
+3. Decisión de releer o buscar más: Un aspecto importante es que el sistema puede volver a leer un documento ya procesado si surge la necesidad. Gracias a la memoria, sabe qué documentos se han visto. Si el contexto de la investigación cambia (por ejemplo, el usuario introduce una nueva pregunta relacionada), el sistema evaluará si alguno de los documentos previos es relevante a la nueva pregunta. Esto se facilita haciendo una búsqueda semántica interna: el asistente consulta el vector DB con la nueva pregunta para ver si fragmentos de documentos anteriores contienen información pertinente. Si encuentra alguno, lo extrae de la memoria en lugar de buscar externamente, ahorrando tiempo. Incluso podría decidir releer completamente un documento con la nueva perspectiva; en ese caso, ya no necesita descargarlo de nuevo (lo tiene en caché) pero podría volver a pasarlo por el LLM enfocándose en la sección relevante. Por ejemplo, si inicialmente un paper fue leído por sus resultados generales, pero ahora el usuario pregunta algo específico sobre la metodología de ese paper, el sistema cargará la sección de metodología (del texto almacenado) y la analizará con detalle ahora. Esta habilidad de re-enfocar en datos previos asegura que nada importante se pase por alto simplemente porque la pregunta o enfoque evolucionó.
+
+4. Ejecución de código integrada: Una característica poderosa será la capacidad del sistema de ejecutar código para realizar análisis más allá de la lectura. Se integrará un entorno de ejecución seguro (por ejemplo, un intérprete de Python sandboxed) al cual el LLM pueda enviar código cuando corresponda. El LLM actuará aquí como un agente que decide usar la herramienta de ejecución de código para ciertos subtareas . Algunos casos de uso:
+
+- Cálculos y estadísticas: Si los datos extraídos requieren cálculo (por ejemplo, promediar valores reportados en distintos estudios, o realizar una prueba estadística sencilla con datos mencionados), el LLM formulará el código (en Python con librerías como pandas, numpy, etc.) y lo ejecutará para obtener resultados numéricos precisos.
+- Visualización de datos: Si se han recolectado datos que podrían beneficiarse de un gráfico (una serie temporal, una distribución, comparación de barras), el asistente puede generar código para crear una gráfica (usando matplotlib, seaborn, etc.) . El gráfico resultante se guardará y se presentará al usuario como parte de los hallazgos, brindando una visualización clara que complemente la explicación textual.
+- Simulaciones o modelados: En casos que lo requieran, el sistema podría ejecutar pequeñas simulaciones. Por ejemplo, si la investigación es sobre un modelo matemático o un algoritmo, el asistente podría codificar una simulación del modelo para probar ciertos escenarios y reportar los resultados.
+- Uso de otras herramientas: La arquitectura de “agente con herramientas” es flexible . Podríamos incorporar más herramientas de ser necesario, como un buscador de referencias cruzadas, traductores, o incluso pequeñas bases de conocimiento específicas. Cada herramienta (incluida la ejecución de código) se define con una interfaz clara para que el LLM la invoque con los parámetros adecuados (esta es una funcionalidad ofrecida por frameworks como LangChain mediante Tool abstractions ).
+
+Tras ejecutar código, el resultado se devuelve al LLM, que lo interpreta en contexto y decide cómo incorporarlo a la base de conocimiento o a la siguiente respuesta al usuario. Por seguridad y control, habrá límites en esta ejecución (tiempo, recursos) y una revisión para evitar comandos peligrosos.
+
+5. Verificación y control de calidad: El sistema implementará comprobaciones para asegurar calidad en el razonamiento. Por ejemplo, después que el LLM genere una conclusión o hipótesis, se puede invocar una rutina de verificación: contrastar esa conclusión con los datos en la memoria o buscar contra la base vectorial si hay evidencia contraria. Esto ayuda a evitar que el asistente afirme algo incorrecto por alucinación. Si se detecta potencial error (inconsistencia entre la respuesta y la fuente), el sistema marca esa parte, busca aclaración en los documentos originales o pospone presentarla hasta tener confirmación. De esta forma, el procesamiento no es sólo sumarizar y razonar, sino razonar con sentido crítico antes de comunicar resultados.
+
+Flujo de Trabajo Iterativo del Sistema
+
+Integrando todos los componentes, el flujo de operación seguirá un ciclo controlado que va de la consulta inicial a resultados iterativos refinados, con el usuario en el circuito. El proceso detallado es el siguiente:
+
+1. Consulta inicial del usuario: El usuario plantea el tema o pregunta inicial que detonará la investigación. Por ejemplo: “Investigar los efectos del algoritmo X en el rendimiento de sistemas Y.” Esta entrada inicial se registra en la memoria (como contexto de alta relevancia).
+
+2. Planificación inicial (LLM): El orquestador (el LLM principal) analiza la consulta y el conocimiento inicial del sistema. Genera un plan de investigación inicial, identificando sub-tareas: posibles temas a buscar, tipos de fuentes necesarias (papers teóricos, informes prácticos, etc.), e hipótesis tentativas. Este plan es interno; por ejemplo, el LLM podría decidir “Buscar papers recientes sobre X”, “Consultar definiciones de Y”, “Luego comparar resultados.”
+
+3. Búsqueda y recopilación: Siguiendo el plan, el módulo de búsqueda se activa para la primera sub-tarea. Puede realizar varias consultas en paralelo: una en Google Scholar para encontrar papers clave sobre X, otra en la web general para definiciones de Y, etc. Obtiene una lista de resultados (enlaces, resúmenes). El sistema prioriza qué abrir primero (por relevancia estimada).
+
+4. Procesamiento de fuentes: Los documentos seleccionados se descargan y procesan. Supongamos que se abren dos papers principales. El LLM resume cada uno, extrae puntos clave y los almacena en la memoria (vectorial y en texto resumido). El sistema puede identificar citas dentro de esos papers que apunten a otras referencias importantes, agregando esas referencias a una cola de búsqueda para la siguiente ronda. Si aparece un PDF escaneado, se aplica OCR antes de pasarlo al LLM.
+
+5. Actualización de hipótesis y conocimiento: Con la nueva información, el LLM actualiza las hipótesis iniciales. Puede que una hipótesis se confirme parcialmente por lo leído en un paper, o quizá surja una nueva pregunta. Toda esta evolución del “estado mental” del asistente se guarda: las hipótesis se registran y enlazan a la evidencia encontrada.
+
+6. Generación de reporte intermedio: El asistente compila una síntesis del progreso hasta ahora. Incluye: los hallazgos más relevantes (citas o datos concretos con sus fuentes), las hipótesis en consideración (“Según [Autor, 2021], X mejora Y en un 20%, lo que apoya la idea de que…”), y qué pasos piensa dar a continuación (“Quedan por investigar Z y entender por qué en otro estudio se obtuvo un resultado distinto.”). Este reporte es conciso y en lenguaje claro, posiblemente enumerado para facilitar lectura.
+
+7. Presentación al usuario: Se envía el reporte intermedio al usuario a través de la interfaz. El usuario revisa los hallazgos presentados.
+
+8. Feedback del usuario: El usuario responde con sus indicaciones. Pueden ocurrir varias cosas: (a) Confirmar la dirección (“OK, continúa profundizando en esos aspectos”); (b) Redirigir la investigación (“No era necesario ahondar en Q, mejor concéntrate en Z”); (c) Aportar información (“¿Puedes revisar también este otro artículo?” o “Ten en cuenta que en la práctica W sucede…”); o (d) Corregir alguna interpretación (“Ese resultado se refiere a otra cosa, revisemos de nuevo”). El sistema recibe esta retroalimentación y la interpreta mediante el LLM para ajustar su plan.
+
+9. Ajuste del plan y memoria: El asistente incorpora el feedback. Si el usuario aportó un nuevo documento, éste se ingiere (se resume y agrega a la base de conocimiento). Si el usuario descarta una línea, el sistema puede marcar esa información en la memoria con menor relevancia (no la borramos, por si más tarde resulta útil, pero la etiquetamos como “no prioritaria”). El plan de investigación se re-calcula: quizás ahora se formulen nuevas consultas de búsqueda o se omitan algunas pendientes.
+
+10. Iteración del ciclo: Con el plan ajustado, se vuelve a la fase de búsqueda y recopilación para la siguiente ronda de información. El ciclo de buscar -> procesar -> sintetizar -> reportar -> feedback puede repetirse cuantas veces sea necesario. En cada iteración, el conocimiento acumulado crece y las hipótesis se refinan. El usuario permanece informado periódicamente mediante estos reportes iterativos, hasta que esté satisfecho con el conocimiento obtenido.
+
+11. Finalización: La sesión concluye cuando el usuario lo decide (por ejemplo, porque ya obtuvo respuesta suficiente a su pregunta original). El asistente entonces podría generar un informe final consolidando toda la investigación: una narrativa coherente que responda la pregunta inicial, respaldada por las fuentes más importantes. Este informe final se presenta al usuario. (Los datos de la sesión quedan almacenados por si se necesitan consultar después, aunque la interacción activa termine.)
+
+Este flujo detallado garantiza una investigación controlada y adaptable. Cada iteración profundiza o corrige el rumbo según sea necesario, evitando desviaciones largas sin supervisión del usuario. A lo largo de este proceso, el sistema decide dinámicamente qué información conservar, sintetizar o descartar:
+
+- Conservar: se mantiene todo aquello potencialmente relevante en la base vectorial. Además, se conserva con mayor prominencia (en resúmenes y grafos) la información confirmada como importante para las hipótesis activas.
+- Sintetizar: cuando hay mucha información redundante, el sistema la sintetiza en una forma más compacta (por ejemplo, si 5 papers repiten un hallazgo similar, se crea un enunciado general que lo resume y se referencian todos). Esto reduce la carga cognitiva y de memoria.
+- Descartar/archivar: si cierta información se determinó irrelevante o fuera de alcance por cambio de dirección, el sistema la archiva (sigue en la base de datos vectorial por si acaso, pero deja de aparecer en los resúmenes activos). También puede descartar definitivamente datos incorrectos (por ejemplo, si una fuente resultó poco fiable o el usuario indica que no la considere, el sistema la etiqueta como “ignorada” para no utilizarla en el razonamiento).
+
+Este proceso de filtrado está guiado tanto por reglas heurísticas (relevancia por puntaje de búsqueda, coincidencia con el tema central) como por el juicio del LLM, que puede evaluar si un hecho “vale la pena” según el contexto actual.
+
+Tecnologías y Herramientas Propuestas
+
+A continuación se resumen las tecnologías y decisiones clave elegidas para esta arquitectura, con su justificación:
+
+- Modelo de lenguaje (LLM): Se opta por un LLM de alta capacidad (ej. GPT-4 de OpenAI, o un modelo open-source de última generación fine-tuneado para instrucciones). Estos modelos destacan en comprensión de lenguaje complejo y generación contextual. GPT-4, por ejemplo, tiene un fuerte rendimiento en tareas de lectura de comprensión y razonamiento avanzado, adecuado para sintetizar papers científicos y generar hipótesis. Alternativamente, un modelo como LLaMA 2 o GPT-J podría desplegarse localmente si se requiere autonomía, aunque probablemente con un poco menos de rendimiento que GPT-4 en comprensión fina. El LLM es el núcleo inteligente del sistema, por lo que escoger el de mejor performance disponible es crucial.
+- Framework de orquestación (agente): Para implementar la lógica de llamar herramientas, mantener el estado de la conversación y estructurar las “decisiones” del LLM, se empleará un framework como LangChain o LlamaIndex (GPT Index). Estos frameworks proveen componentes modulares para construir agentes con memoria, herramientas y flujos conversacionales . En particular, LangChain facilita definir Tools (herramientas) que el LLM puede invocar (como búsqueda web, ejecución de código, consultas a base de datos), y maneja memorias conversacionales integradas. Usar este tipo de framework ahorra tiempo y reduce la complejidad, dado que ya implementan patrones comunes de agentes (por ejemplo, el patrón ReAct para que el LLM razone y actúe). Además, son compatibles con múltiples proveedores de LLM, dando flexibilidad para cambiar el modelo en el futuro. La elección se basaría en compatibilidad con nuestras necesidades: LangChain tiene amplia comunidad y soporte para integración con vectores (Chroma, Pinecone) y grafos, mientras que LlamaIndex destaca en indexación de documentos y puede complementar bien. Incluso se puede usar una combinación: LlamaIndex para ingesta/búsqueda de documentos, LangChain para la orquestación general.
+- Bases de datos/memoria:
+- Como se describió, un Vector DB (por ejemplo Pinecone para escalabilidad en la nube, o FAISS si se busca local) será utilizado por su rapidez en búsqueda semántica. Estas tecnologías están optimizadas para cientos de miles de embeddings, lo cual da espacio a ingerir una gran cantidad de texto académico en la sesión.
+- Para el grafo de conocimiento, Neo4j es una opción sólida (es altamente consultable con Cypher y visualizable) si se decide implementarlo. Alternativamente, se puede considerar GraphDB o incluso un framework en Python como NetworkX para grafo en memoria si la escala es moderada. La decisión de incluir un grafo se justifica si la investigación involucra muchos conceptos interrelacionados que queremos consultar explícitamente (por ejemplo, en biomedicina con relaciones gen-proteína, un grafo aporta mucho). Dado que las knowledge graphs preservan relaciones semánticas y estructura, son ideales para consultas complejas y aportar contexto a LLM .
+- La base de datos tradicional podría ser PostgreSQL (si se prefiere SQL robusto) o MongoDB (documental JSON flexible), según convenga al formato de datos que guardemos. PostgreSQL con extensiones JSONB podría dar lo mejor de ambos mundos (estructura relacional y flexibilidad JSON).
+- Herramientas de búsqueda y APIs: Se integrarán los servicios mencionados: SerpAPI para Google Scholar (servicio que retorna resultados de Scholar en JSON, acelerando la búsqueda académica ), la API de Semantic Scholar (que permite obtener títulos/resúmenes de papers por keywords o DOI), la API de arXiv (para buscar por categorías o autores en preprints), y motores de búsqueda web (Bing/Google) para la web general. Estas elecciones cubren tanto literatura científica peer-reviewed como información general. Todas ofrecen interfaces programables para automatización. El sistema modular permitirá añadir más (ej: PubMed API, arXiv for specific domain) sin re-arquitectura.
+- OCR: Se usará Tesseract OCR para procesar imágenes/PDFs escaneados debido a que es open source y suficientemente preciso en muchos casos. Para mayor precisión en documentos complicados, podría habilitarse opcionalmente Google Cloud Vision OCR o AWS Textract, aunque implican costo. Tener OCR garantiza que ninguna fuente válida quede sin análisis por estar en formato imagen.
+- Ejecución de código: Se integrará un intérprete tipo Python 3 sandbox. Esto podría correrse en un contenedor Docker aislado o un microservicio, limitando recursos para seguridad. Python es elegido por la abundancia de librerías científicas (numpy, pandas, matplotlib, SciPy) que cubren la mayoría de necesidades de análisis numérico o manipulación de datos durante la investigación. Además, muchas comunidades científicas proporcionan ejemplos en Python que pueden aprovecharse. El LLM formateará comandos en Python que este intérprete ejecutará; la salida (sea texto, tabla o imagen) se retorna. Esta arquitectura sigue el concepto de tool use de agentes, donde el LLM “sabe” llamar a Python para cálculos .
+- Control de versiones de conocimiento: Aunque no es una tecnología externa, vale mencionar la estrategia para conocimiento evolutivo. Se pueden utilizar IDs de versión para cada resumen/hipótesis. Por ejemplo, tener una estructura de datos donde cada hipótesis tiene un estado (activa, refutada, etc.) y referencias a iteraciones. Esto se puede manejar en la base de datos o incluso en el grafo (“Hipótesis X –[refutadaPor]→ Paper Y”). Este control es parte lógico del sistema para decidir qué descartar o actualizar.
+
+En conjunto, esta arquitectura aprovecha LLMs de última generación, almacenamiento vectorial + grafos para memoria semántica, y frameworks de agentes para integrar todo de manera coherente. La justificación de cada decisión radica en maximizar la eficiencia (búsquedas rápidas y relevantes con vectores), la capacidad cognitiva (LLM potente con razonamiento y herramientas) y la flexibilidad (componentes modulares reemplazables). Al combinar técnicas de Retrieval-Augmented Generation con vectores y posiblemente knowledge graph, nos aseguramos de que el sistema pueda tanto recuperar datos precisos como entender el contexto y relaciones, produciendo respuestas sólidas . La interacción iterativa con el usuario cierra el ciclo, haciendo del sistema una herramienta colaborativa y controlable, ideal para llevar a cabo investigaciones complejas de forma automatizada pero con supervisión humana en el bucle.
+
+
+
+
+
+
+
+---
+---
+
+
+
+
+
+
+
+Below is my basic summary of what the system should do:
+
+El sistema tiene el concepto de "session" o "project". Esto es una investigacion puntual sobre algun tema que quiero hacer investigacion. Tienen un ID particular que puede ser un nombre que el usuario determina al principio.
+Una session comienza con un user input inicial, que puede tener un objetivo, explicacion del contexto, algunas recomendaciones e informacion para que lea. Puede apuntar hacia distintas fuentes de informacion: links a websites, pdfs, archivos de otros tipos como word, excel, csv, etc.
+Entonces el user input contiene textos, links y archivos. Los archivos deberian ser locales, asi que podriamos apuntar a una ruta local para que el sistema lo vaya a buscar.
+
+Despues el proceso sigue de la manera indicada en el paper, donde hay multiples agentes y hay multiples generadores de hipotesis. 
+Para generar una hipotesis, cada agente encargado tiene a disposicion tools: web search, buscador de papers, pdf readers and parsers y code execution en python. El sistema puede iterativamente usar tools, recopilar los datos, descargar pdfs, parsearlos y extraer la informacion, ejecutar codigo para abrir archivos y hacer analisis de datos, etc.
+Luego, en algun momento, puede cortar ese proceso iterativo donde busca informacion y mezclar, sintetizar y usar toda la informacion recopilada, tanto de su recopilacion como del user input.
+Con eso listo, debe generar una hipotesis bien detallada e innovadora para resolver el problema planteado.
+La informacion usada debe ser guardada de alguna manera en un knowledge base. Puede ser con KG, databases comunes, vector dbs, en textos, etc. Eso hay que verlo bien pero hay que decidirlo. Debe haber metadata indicando que papers ya fueron leidos y procesados, etc, para luego no hacerlo multiples veces lo mismo (a menos que se considere que sea necesario).
+
+Luego, el proceso debe continuar como indica el paper, con las evaluaciones, torneos, etc... con los multiples agentes y el flow indicado.
+
+Luego, una vez que tenemos un conjunto de hipotesis con sus rankings y puntuaciones, se termina la iteracion y se pasa a escuchar el feedback del usuario. Esta es una etapa obligatoria. Dentro de las hipotesis, se pueden recomendar hacer experimentos especificos, para que el usuario pueda realizarlos y despues entregar los resultados para validar o rechazar hipotesis en conjunto. Las hipotesis tambien deben ser guardadas en la base de conocimiento.
+El usuario da feedback de la misma manera que el input inicial, con texto y documentos o links. Aqui pueden haber tambien archivos con data experimental para tener en cuenta.
+
+El proceso vuelve a seguir de la misma manera, con otra iteracion y asi se van construyendo y mejorando las hipotesis y guardando la informacion pertinente. Los agentes de la iteracion 2 ya tienen que tener a disposicion la informacion recopilada, extraida y procesada de la iteracion 1, y la metadata correspondiente, por lo que puede ayudar a profundizar mas al buscar alternativas o fuentes complementarias para reforzas las hipotesis.
+
+Cada session puede cerrarse cuando queramos y despues retomarla. Pueden existir multiples session al mismo tiempo, y por ahora no deberian compartir su base de conocimiento (quizas se pueda implementar posteriormente).
+Cada session tiene que tener distintos estados "state". Aqui se determina en que etapa del proyecto se esta, por ejemplo "waiting for user feedback".
+Tiene que quedar un registro de todas las hipotesis, que agentes la realizo, como fue evolucionando, etc.
+
+Todo esto es estimativo y puede mejorarse a traves de tus recomendaciones, basandote en las buenas practicas.
