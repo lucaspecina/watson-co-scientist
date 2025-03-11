@@ -32,6 +32,8 @@ async def main_async():
     parser.add_argument("--config", type=str, default="default", help="Configuration to use")
     parser.add_argument("--run", type=int, help="Number of iterations to run")
     parser.add_argument("--list_goals", action="store_true", help="List all existing research goals")
+    parser.add_argument("--interactive", action="store_true", help="Start in step-by-step interactive mode (default for new goals)")
+    parser.add_argument("--non_interactive", action="store_true", help="Don't use interactive mode, even if no --run is specified")
     args = parser.parse_args()
     
     try:
@@ -85,9 +87,17 @@ async def main_async():
                 logger.info(f"Research areas: {len(overview.research_areas)}")
             else:
                 logger.info("No research overview generated")
+            
+            # If interactive mode was explicitly requested, start it after running iterations
+            if args.interactive:
+                await system.start_interactive_mode()
+        elif args.non_interactive:
+            # User explicitly requested non-interactive mode with no run iterations
+            logger.info("Non-interactive mode selected without run iterations. Exiting.")
+            return 0
         else:
-            # Otherwise start interactive mode
-            await system.start_interactive_mode()
+            # Otherwise start the interactive mode
+            await system.start_structured_interactive_mode()
             
     except Exception as e:
         logger.error(f"Error running Co-Scientist system: {e}", exc_info=True)
