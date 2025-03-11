@@ -6,6 +6,7 @@ import json
 import logging
 import asyncio
 from typing import Dict, List, Any, Optional, Set, Tuple
+import random
 
 from .base_agent import BaseAgent
 from ..config.config import SystemConfig
@@ -300,6 +301,16 @@ class SupervisorAgent(BaseAgent):
                 "protocol_generation": float(data.get("protocol_generation", 0.0))
             }
             
+            # Ensure no component gets zero weight - minimum 0.1 for all components
+            for key in weights:
+                weights[key] = max(weights[key], 0.1)
+                
+            # Add a small amount of randomness to ensure weights change between iterations
+            for key in weights:
+                # Add random variation of ±10% to each weight
+                variation = random.uniform(-0.1, 0.1)
+                weights[key] = max(0.1, weights[key] + variation)
+            
             # Normalize the weights to ensure they sum to 1.0
             total = sum(weights.values())
             if total > 0:
@@ -324,10 +335,10 @@ class SupervisorAgent(BaseAgent):
                     "generation": 0.65,
                     "reflection": 0.2,
                     "ranking": 0.05,
-                    "proximity": 0.0,
-                    "evolution": 0.0,
-                    "meta_review": 0.05,
-                    "protocol_generation": 0.05
+                    "proximity": 0.1,
+                    "evolution": 0.1,
+                    "meta_review": 0.1,
+                    "protocol_generation": 0.1
                 }
             elif num_reviews < num_hypotheses * 0.5:
                 # Middle phase: focus on review
@@ -335,9 +346,9 @@ class SupervisorAgent(BaseAgent):
                     "generation": 0.25,
                     "reflection": 0.45,
                     "ranking": 0.1,
-                    "proximity": 0.05,
-                    "evolution": 0.0,
-                    "meta_review": 0.05,
+                    "proximity": 0.1, 
+                    "evolution": 0.1,
+                    "meta_review": 0.1,
                     "protocol_generation": 0.1
                 }
             elif num_matches < 20:
@@ -357,11 +368,21 @@ class SupervisorAgent(BaseAgent):
                     "generation": 0.1,
                     "reflection": 0.1,
                     "ranking": 0.15,
-                    "proximity": 0.05,
+                    "proximity": 0.1,
                     "evolution": 0.25,
                     "meta_review": 0.15,
                     "protocol_generation": 0.2
                 }
+            
+            # Add randomness to ensure weights change between iterations
+            for key in weights:
+                variation = random.uniform(-0.05, 0.05)
+                weights[key] = max(0.1, weights[key] + variation)
+                
+            # Normalize to ensure they sum to 1.0
+            total = sum(weights.values())
+            if total > 0:
+                weights = {k: v / total for k, v in weights.items()}
             
             return weights
     
@@ -484,3 +505,82 @@ class SupervisorAgent(BaseAgent):
             # Return some basic keywords extracted from the text
             words = text.split()
             return [w for w in words if len(w) > 4][:5]
+
+    async def update_research_plan(self, 
+                              research_goal: ResearchGoal,
+                              plan_config: Dict[str, Any],
+                              feedback_text: str) -> Dict[str, Any]:
+        """
+        Update the research plan based on user feedback.
+        
+        Args:
+            research_goal (ResearchGoal): The research goal.
+            plan_config (Dict[str, Any]): The current research plan configuration.
+            feedback_text (str): The feedback text from the user.
+            
+        Returns:
+            Dict[str, Any]: The updated research plan configuration.
+        """
+        logger.info(f"Updating research plan for goal {research_goal.id} based on feedback")
+        
+        # Build the prompt
+        prompt = f"""
+        You are the Supervisor agent responsible for updating the research plan based on user feedback.
+        
+        Research Goal:
+        {research_goal.text}
+        
+        Current Research Plan Configuration:
+        {json.dumps(plan_config, indent=2)}
+        
+        User Feedback:
+        {feedback_text}
+        
+        Your task is to analyze the user feedback and recommend changes to the research plan configuration.
+        Consider whether the feedback suggests specific topics to explore, methodologies to use, or constraints to apply.
+        
+        Format your response as a JSON object representing the UPDATED parts of the plan ONLY.
+        Include only keys that should be changed or added based on the feedback.
+        
+        Example response format:
+        ```json
+        {{
+            "preferences": {{
+                "focus_areas": ["specific area mentioned in feedback"],
+                "methodologies": ["methods suggested in feedback"]
+            }},
+            "constraints": ["any constraints mentioned in feedback"]
+        }}
+        ```
+        
+        If no changes are needed, return an empty JSON object: {{}}
+        """
+        
+        # Generate the updated plan
+        response = await self.generate(prompt)
+        
+        # Extract the JSON from the response
+        try:
+            # Find JSON content between backticks or at the start/end of the response
+            json_content = response
+            if "```json" in response:
+                json_content = response.split("```json")[1].split("```")[0].strip()
+            elif "```" in response:
+                json_content = response.split("```")[1].split("```")[0].strip()
+                
+            # Parse the JSON
+            updates = json.loads(json_content)
+            
+            # If updates is empty, return an empty dict
+            if not updates:
+                logger.info("No updates needed for research plan")
+                return {}
+            
+            # Log the updates
+            logger.info(f"Updating research plan with: {updates}")
+            return updates
+            
+        except Exception as e:
+            logger.error(f"Error parsing research plan updates: {e}")
+            logger.debug(f"Response: {response}")
+            return {}

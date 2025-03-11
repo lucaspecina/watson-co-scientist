@@ -4,18 +4,19 @@ aiohttp==3.9.5
 pydantic==2.5.2
 pytest==7.4.3
 rich==13.6.0
-tiktoken==0.5.1
+tiktoken==0.5.2
 requests==2.31.0
 httpx==0.26.0
 fastapi==0.109.2
 uvicorn==0.25.0
 langchain==0.1.6
 langchain-openai==0.0.5
-langchain-community==0.0.16
+langchain-community==0.0.18
 beautifulsoup4==4.12.2
 tavily-python==0.5.1
 # For domain-specific database access
 feedparser==6.0.10  # For ArXiv RSS feed parsing
+sgmllib3k==1.0.0  # Required by feedparser for Python 3
 lxml==4.9.3  # For XML parsing
 pyparsing==3.1.1  # For parsing chemical formulas
 nest-asyncio==1.5.8  # For async operations in Jupyter notebooks
@@ -27,10 +28,10 @@ scikit-learn==1.3.0  # For vector operations and similarity calculations
 nltk==3.8.1  # For text processing and entity extraction
 spacy==3.7.2  # For NER and relationship extraction
 tqdm==4.66.1  # Progress bars for batch operations
+pillow==11.1.0  # Image handling - required for basic functionality
 
 # Optional dependencies (enhance functionality if available)
 # These packages are not required but will enhance functionality if installed
 # pymupdf==1.23.25  # PDF processing - enhances PDF extraction capabilities
 # pytesseract==0.3.10  # OCR for text extraction from images
 # opencv-python==4.8.1.78  # Image processing - enhances figure extraction
-# pillow==10.2.0  # Image handling - used with pytesseract and opencv

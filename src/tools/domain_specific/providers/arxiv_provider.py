@@ -3,10 +3,12 @@ ArXiv knowledge provider for physics, computer science, mathematics, and related
 """
 
 import os
+import json
+import re
 import logging
 import httpx
 import asyncio
-import feedparser
+import sys
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional, Union
@@ -14,6 +16,163 @@ from typing import Dict, List, Any, Optional, Union
 from ..base_provider import DomainKnowledgeProvider
 
 logger = logging.getLogger("co_scientist")
+
+# COMPLETE BYPASS OF FEEDPARSER - NO SGMLLIB DEPENDENCY
+# This implements a minimal version of feedparser functionality
+class AttrDict(dict):
+    """Dictionary that allows attribute access to its keys."""
+    def __init__(self, *args, **kwargs):
+        super(AttrDict, self).__init__(*args, **kwargs)
+        self.__dict__ = self
+
+def text_content(element):
+    """Extract text content from an XML element recursively."""
+    return (element.text or '') + ''.join(text_content(e) + (e.tail or '') for e in element)
+
+def parse_feed(content):
+    """Minimal feedparser replacement that works without sgmllib."""
+    try:
+        # Try to parse as XML
+        if isinstance(content, str):
+            try:
+                root = ET.fromstring(content)
+            except ET.ParseError:
+                return create_empty_feed()
+        else:
+            # If content is file-like, read the contents
+            try:
+                content_text = content.read()
+                if isinstance(content_text, bytes):
+                    content_text = content_text.decode('utf-8')
+                root = ET.fromstring(content_text)
+            except:
+                return create_empty_feed()
+        
+        # Create feed dictionary
+        feed = AttrDict()
+        feed.entries = []
+        feed.feed = AttrDict()
+        feed.feed.title = ""
+        feed.feed.link = ""
+        feed.bozo = False
+        
+        # Try to determine if it's Atom or RSS
+        namespace = root.tag.split('}')[0] + '}' if '}' in root.tag else ''
+        
+        if root.tag == 'rss' or root.tag.endswith('}rss'):
+            # RSS feed
+            channel = root.find('./channel') or root
+            
+            # Feed info
+            title_elem = channel.find('./title') or channel.find(f'{namespace}title')
+            if title_elem is not None:
+                feed.feed.title = text_content(title_elem)
+            
+            link_elem = channel.find('./link') or channel.find(f'{namespace}link')
+            if link_elem is not None:
+                feed.feed.link = text_content(link_elem)
+            
+            # Entries
+            for item in channel.findall('./item') or channel.findall(f'{namespace}item'):
+                entry = AttrDict()
+                
+                # Title
+                title_elem = item.find('./title') or item.find(f'{namespace}title')
+                if title_elem is not None:
+                    entry.title = text_content(title_elem)
+                else:
+                    entry.title = ""
+                
+                # Link
+                link_elem = item.find('./link') or item.find(f'{namespace}link')
+                if link_elem is not None:
+                    entry.link = text_content(link_elem)
+                else:
+                    entry.link = ""
+                
+                # Description/summary
+                desc_elem = item.find('./description') or item.find(f'{namespace}description')
+                if desc_elem is not None:
+                    entry.summary = text_content(desc_elem)
+                else:
+                    entry.summary = ""
+                
+                # ID
+                id_elem = item.find('./guid') or item.find(f'{namespace}guid')
+                if id_elem is not None:
+                    entry.id = text_content(id_elem)
+                else:
+                    entry.id = entry.link
+                
+                feed.entries.append(entry)
+                
+        elif root.tag == 'feed' or root.tag.endswith('}feed'):
+            # Atom feed
+            # Feed info
+            title_elem = root.find('./title') or root.find(f'{namespace}title')
+            if title_elem is not None:
+                feed.feed.title = text_content(title_elem)
+            
+            link_elem = root.find("./link[@rel='alternate']") or root.find(f"{namespace}link[@rel='alternate']") or root.find('./link') or root.find(f'{namespace}link')
+            if link_elem is not None:
+                feed.feed.link = link_elem.get('href', '')
+            
+            # Entries
+            for entry_elem in root.findall('./entry') or root.findall(f'{namespace}entry'):
+                entry = AttrDict()
+                
+                # Title
+                title_elem = entry_elem.find('./title') or entry_elem.find(f'{namespace}title')
+                if title_elem is not None:
+                    entry.title = text_content(title_elem)
+                else:
+                    entry.title = ""
+                
+                # Link
+                link_elem = entry_elem.find("./link[@rel='alternate']") or entry_elem.find(f"{namespace}link[@rel='alternate']") or entry_elem.find('./link') or entry_elem.find(f'{namespace}link')
+                if link_elem is not None:
+                    entry.link = link_elem.get('href', '')
+                else:
+                    entry.link = ""
+                
+                # Summary
+                content_elem = entry_elem.find('./content') or entry_elem.find(f'{namespace}content')
+                summary_elem = entry_elem.find('./summary') or entry_elem.find(f'{namespace}summary')
+                
+                if content_elem is not None:
+                    entry.summary = text_content(content_elem)
+                elif summary_elem is not None:
+                    entry.summary = text_content(summary_elem)
+                else:
+                    entry.summary = ""
+                
+                # ID
+                id_elem = entry_elem.find('./id') or entry_elem.find(f'{namespace}id')
+                if id_elem is not None:
+                    entry.id = text_content(id_elem)
+                else:
+                    entry.id = entry.link
+                
+                feed.entries.append(entry)
+        
+        return feed
+        
+    except Exception as e:
+        # Create empty feed on error
+        feed = create_empty_feed()
+        feed.bozo = True
+        feed.bozo_exception = str(e)
+        return feed
+
+def create_empty_feed():
+    """Create an empty feed structure."""
+    feed = AttrDict()
+    feed.entries = []
+    feed.feed = AttrDict()
+    feed.feed.title = ""
+    feed.feed.link = ""
+    feed.bozo = True
+    return feed
 
 class ArxivProvider(DomainKnowledgeProvider):
     """
@@ -80,7 +239,7 @@ class ArxivProvider(DomainKnowledgeProvider):
             
             # Parse response with feedparser
             response_text = response.text
-            feed = feedparser.parse(response_text)
+            feed = parse_feed(response_text)
             
             # More robust check: check if feed has entries or valid structure
             if hasattr(feed, 'entries') and len(feed.entries) > 0:
@@ -193,7 +352,7 @@ class ArxivProvider(DomainKnowledgeProvider):
             
             # Parse response (ArXiv returns Atom feed XML)
             response_text = response.text
-            feed = feedparser.parse(response_text)
+            feed = parse_feed(response_text)
             
             # Check if feed has entries
             if not hasattr(feed, 'entries'):
@@ -336,7 +495,7 @@ class ArxivProvider(DomainKnowledgeProvider):
             response.raise_for_status()
             
             # Parse response
-            feed = feedparser.parse(response.text)
+            feed = parse_feed(response.text)
             
             # Check if we found the paper
             if not feed.entries:

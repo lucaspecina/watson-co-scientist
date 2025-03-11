@@ -280,13 +280,15 @@ class Database:
             if f.research_goal_id == research_goal_id and f.active
         ]
     
-    def get_user_feedback(self, research_goal_id: str, limit: int = 10) -> List[UserFeedback]:
+    def get_user_feedback(self, research_goal_id: str, limit: int = 10, require_action: bool = None, action_taken: bool = None) -> List[UserFeedback]:
         """
         Get recent user feedback for a research goal.
         
         Args:
             research_goal_id (str): The ID of the research goal.
             limit (int): Maximum number of feedback items to return.
+            require_action (bool, optional): Filter by requires_action flag.
+            action_taken (bool, optional): Filter by action_taken flag.
             
         Returns:
             List[UserFeedback]: The user feedback.
@@ -295,6 +297,13 @@ class Database:
             f for f in self.user_feedback.get_all()
             if f.research_goal_id == research_goal_id
         ]
+        
+        # Apply additional filters if specified
+        if require_action is not None:
+            feedback = [f for f in feedback if f.requires_action == require_action]
+            
+        if action_taken is not None:
+            feedback = [f for f in feedback if f.action_taken == action_taken]
         
         # Sort by creation time (newest first) and apply limit
         feedback.sort(key=lambda f: f.created_at, reverse=True)
@@ -569,3 +578,23 @@ class Database:
                 results.append(citation)
                 
         return results
+    
+    def get_protocols_for_goal(self, research_goal_id: str) -> List[ExperimentalProtocol]:
+        """
+        Get all experimental protocols for a research goal.
+        
+        Args:
+            research_goal_id (str): The ID of the research goal.
+            
+        Returns:
+            List[ExperimentalProtocol]: The experimental protocols.
+        """
+        # First get all hypotheses for this goal
+        hypotheses = self.get_hypotheses_for_goal(research_goal_id)
+        
+        # Then get protocols for each hypothesis
+        protocols = []
+        for hypothesis in hypotheses:
+            protocols.extend(self.get_protocols_for_hypothesis(hypothesis.id))
+            
+        return protocols
