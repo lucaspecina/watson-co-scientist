@@ -1,5 +1,5 @@
 """
-Basic tests for the Watson Co-Scientist system.
+Basic tests for the Raul Co-Scientist system.
 """
 
 import os

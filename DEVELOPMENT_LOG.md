@@ -1,8 +1,36 @@
-# Watson Co-Scientist Development Log
+# Original instruction
+
+You are tasked with designing and building an AI co-scientist system to assist human scientists in generating, refining, and testing research hypotheses. This system should serve as a collaborative partner, enhancing scientists' ability to explore complex scientific problems efficiently. It must be flexible, adaptable across various scientific domains (e.g., biology, chemistry, physics), and capable of integrating with external tools and data sources. The system will interact with scientists through a natural language interface, providing hypotheses, experiment designs, and insights while learning from feedback and experimental results.
+
+BASED ON THE ORIGINAL PAPER THAT'S IN THE ETHOS.md file
+
+YOUR GOAL IS TO CREATE SUCH A SYSTEM FROM SCRATCH.
+
+We should:
+- FOLLOW BEST CODING PRACTICES (well structured, good, modular architecture, reusable things, not too abstract, so on).
+- Develop it an iterative way (from simpler to more complex). 
+- After each "iteration", you should RUN THE SYSTEM FROM SCRATCH to make sure it works correctly.
+- After testing it, we should commit in git the changes. You tell me and I will do it manually (and also analyze the changes).
+
+When you add some files for testing or utilities and so on, do it INSIDE particular folders. Do it in an organized way following best practices, not all in the root.
+
+VERY IMPORTANT: YOU HAVE TO USE THE CONDA ENV: “conda activate co_scientist”
+
+Remember, remove all the unnecessary files and folders in the repo. But if you change big things, we should test the system to see that everything is ok.
+
+FOLLOW BEST PRACTICES but always test that everything is working after major changes!
+
+The models should be run using an AZURE OPENAI service as the default provider. Also include OPENAI, ollama and others as fallbacks. It should be configurable.
+I already have a .env file with the credentials for all of them.
+
+---
+---
+
+# Raul Co-Scientist Development Log
 
 ## Project Overview
 
-The Watson Co-Scientist project aims to build an AI system that assists scientists in generating, refining, and testing research hypotheses. As outlined in the [CLAUDE.md](CLAUDE.md) file, the system is based on a multi-agent architecture that mirrors the scientific method, enabling collaboration between AI agents and human scientists to accelerate scientific discovery.
+The Raul Co-Scientist project aims to build an AI system that assists scientists in generating, refining, and testing research hypotheses. As outlined in the [CLAUDE.md](CLAUDE.md) file, the system is based on a multi-agent architecture that mirrors the scientific method, enabling collaboration between AI agents and human scientists to accelerate scientific discovery.
 
 ## Development Strategy
 
@@ -220,7 +248,7 @@ All components have been implemented and tested with a new test_run.py script th
 
 ### Overview
 
-In this iteration, we successfully implemented comprehensive literature search capabilities and citation tracking for the Watson Co-Scientist system. The system can now find relevant scientific literature, extract meaningful citations, and use them to ground hypotheses in existing research. This represents a major improvement in the quality and credibility of the generated hypotheses, making the system much more useful for scientists.
+In this iteration, we successfully implemented comprehensive literature search capabilities and citation tracking for the Raul Co-Scientist system. The system can now find relevant scientific literature, extract meaningful citations, and use them to ground hypotheses in existing research. This represents a major improvement in the quality and credibility of the generated hypotheses, making the system much more useful for scientists.
 
 ### Key Accomplishments
 
@@ -362,7 +390,7 @@ These capabilities are particularly valuable for researchers working on complex 
 
 ## Completed: Domain-Specific Knowledge Integration and Evolution Improvements (March 7, 2025)
 
-We've successfully implemented domain-specific knowledge integration and enhanced evolution strategies for the Watson Co-Scientist system. These improvements significantly enhance the system's ability to generate scientifically grounded hypotheses and to adapt its evolution approach based on specific review feedback and hypothesis characteristics.
+We've successfully implemented domain-specific knowledge integration and enhanced evolution strategies for the Raul Co-Scientist system. These improvements significantly enhance the system's ability to generate scientifically grounded hypotheses and to adapt its evolution approach based on specific review feedback and hypothesis characteristics.
 
 ### Key Accomplishments
 
@@ -397,7 +425,7 @@ We've successfully implemented domain-specific knowledge integration and enhance
 
 ### Impact on the System
 
-The integration of domain-specific knowledge and enhanced evolution strategies has significantly improved the system's ability to generate and refine scientific hypotheses. The Watson Co-Scientist can now:
+The integration of domain-specific knowledge and enhanced evolution strategies has significantly improved the system's ability to generate and refine scientific hypotheses. The Raul Co-Scientist can now:
 
 1. Ground hypotheses in appropriate domain-specific terminology and concepts
 2. Adapt its evolution strategy based on the specific weaknesses identified in reviews
@@ -439,13 +467,13 @@ We've successfully implemented comprehensive integration with multiple scientifi
 
 ### Impact
 
-This enhancement significantly improves the Watson Co-Scientist system's ability to generate well-grounded hypotheses based on current scientific literature across multiple domains. By integrating knowledge from diverse scientific databases, the system can now create more interdisciplinary and innovative hypotheses, providing scientists with connections they might not have discovered otherwise.
+This enhancement significantly improves the Raul Co-Scientist system's ability to generate well-grounded hypotheses based on current scientific literature across multiple domains. By integrating knowledge from diverse scientific databases, the system can now create more interdisciplinary and innovative hypotheses, providing scientists with connections they might not have discovered otherwise.
 
 The cross-domain synthesis capability is particularly valuable for research questions that span multiple scientific domains, such as computational biology, medicinal chemistry, or applications of machine learning in healthcare.
 
 ## Completed: Scalable Paper Knowledge Extraction System (March 8, 2025)
 
-We've successfully implemented the Scalable Paper Knowledge Extraction System, enabling the Watson Co-Scientist to process complete scientific papers beyond just metadata and abstracts. This enhancement transforms the system's ability to understand scientific literature at a deeper level and generate more grounded hypotheses.
+We've successfully implemented the Scalable Paper Knowledge Extraction System, enabling the Raul Co-Scientist to process complete scientific papers beyond just metadata and abstracts. This enhancement transforms the system's ability to understand scientific literature at a deeper level and generate more grounded hypotheses.
 
 The implementation includes graceful fallbacks if optional dependencies like PyMuPDF, Tesseract OCR, or OpenCV are not available, ensuring the system remains functional with reduced capabilities even without these packages.
 
@@ -521,7 +549,7 @@ This integration enables the Evolution Agent to create hypotheses that are bette
 
 ### Impact on the System
 
-The addition of the Paper Knowledge Extraction System significantly enhances the Watson Co-Scientist's capabilities:
+The addition of the Paper Knowledge Extraction System significantly enhances the Raul Co-Scientist's capabilities:
 
 1. **Greater Scientific Depth**: The system now understands complete papers rather than just abstracts, capturing methods, results, and discussions.
 
@@ -533,11 +561,11 @@ The addition of the Paper Knowledge Extraction System significantly enhances the
 
 5. **More Sophisticated Evolution**: The Evolution Agent can now leverage detailed scientific knowledge to improve hypotheses in more targeted and substantive ways.
 
-The Paper Knowledge Extraction System represents a significant advancement in the scientific reasoning capabilities of the Watson Co-Scientist, making it an even more valuable partner for human scientists in the research process.
+The Paper Knowledge Extraction System represents a significant advancement in the scientific reasoning capabilities of the Raul Co-Scientist, making it an even more valuable partner for human scientists in the research process.
 
 ## Completed: Project Restructuring and Best Practices Implementation (March 8, 2025)
 
-We've completed a significant restructuring of the Watson Co-Scientist project to follow better software engineering practices and improve the development and testing workflow.
+We've completed a significant restructuring of the Raul Co-Scientist project to follow better software engineering practices and improve the development and testing workflow.
 
 ### Key Accomplishments
 
@@ -605,7 +633,7 @@ We've enhanced the Paper Knowledge Extraction System to improve its robustness a
    - Added support for handling various paper formats and structures
    - Tested and validated knowledge graph construction with real scientific content
 
-These enhancements make the Paper Knowledge Extraction System a powerful tool for scientific discovery, enabling the Watson Co-Scientist to process complete scientific papers, extract structured knowledge, and build comprehensive knowledge graphs. The system can process papers from various sources, handle different formats, and create detailed entity-relation networks that power the hypothesis evolution process.
+These enhancements make the Paper Knowledge Extraction System a powerful tool for scientific discovery, enabling the Raul Co-Scientist to process complete scientific papers, extract structured knowledge, and build comprehensive knowledge graphs. The system can process papers from various sources, handle different formats, and create detailed entity-relation networks that power the hypothesis evolution process.
 
 Working tests have shown that the system can successfully extract thousands of sections from papers and identify dozens of entities and relationships, creating a rich knowledge base for scientific reasoning.
 
@@ -654,9 +682,129 @@ With these enhancements, users can now:
 
 The implementation has been thoroughly tested to ensure a seamless experience when resuming sessions, with proper reloading of all hypotheses, reviews, and tournament states. The improved session management makes the system much more practical for ongoing research projects that may span days or weeks.
 
-## Next Steps: Evaluation Framework and User Studies (March 8, 2025)
+## Critical Areas for Improvement (March 8, 2025)
 
-With the improved project structure, enhanced paper extraction system, and robust session management in place, we will now focus on comprehensive evaluation, optimization, and user studies.
+After thorough code analysis and testing of the current system, we've identified several critical areas that need improvement to better align with our core vision of creating a truly collaborative AI co-scientist:
+
+1. **Enhanced User-System Collaboration**
+   - Current interaction model is too transactional rather than truly collaborative
+   - Need more sophisticated mechanisms for scientists to guide research in real-time
+   - Improve support for scientists to provide specific resources, approaches, and context
+   - Create better feedback loops where AI builds on specific scientist input
+   - Develop richer ways to capture domain expertise from the scientist
+
+2. **Knowledge Synthesis and Retention**
+   - Cross-domain synthesis needs improvement - currently gathers information but doesn't effectively integrate knowledge
+   - System should maintain a deeper, persistent understanding of the research domain beyond individual sessions
+   - Need better mechanisms to identify non-obvious connections between concepts
+   - Improve knowledge graph evolution to better represent the scientist's evolving research focus
+   - Enhance citation integration to better ground hypotheses in literature
+
+3. **Hypothesis Quality Enhancement**
+   - Current hypotheses lack sufficient depth, novelty, and specificity to be truly valuable
+   - Need stronger mechanisms for grounding hypotheses in methodological approaches familiar to scientists
+   - Improve creativity and innovation in hypothesis generation
+   - Better distinguish between well-established ideas and truly novel approaches
+   - Add more granular quality metrics beyond basic Elo ratings
+
+4. **Research Continuity and Evolution**
+   - Improve how the system builds on previous work within and across sessions
+   - Create better mechanisms to track the evolution of thinking throughout a research project
+   - Develop a "research story" tracking capability to understand how and why ideas evolved
+   - Enhance session context to maintain the full research history
+   - Implement better ways to visualize research progress and evolution
+
+5. **Real-world Scientific Utility**
+   - Focus on generating more actionable, testable hypotheses
+   - Improve experimental protocol generation with more practical detail
+   - Enhance domain-specific knowledge integration for greater relevance
+   - Develop better metrics for evaluating real scientific impact
+   - Create more scientist-friendly interfaces and workflows
+
+## Implemented: Enhanced User Interaction and Feedback Mechanisms (March 8, 2025)
+
+Based on our critical analysis, we've implemented significant improvements to the user interaction capabilities of the system. These enhancements focus on creating a more collaborative relationship between the scientist and the system, with better feedback mechanisms, resource integration, and research focus capabilities.
+
+### Key Improvements
+
+1. **Enhanced User Feedback Model**
+   - Expanded the UserFeedback model to support hypothesis-specific feedback
+   - Added structured feedback types (critique, improvement, resource, context)
+   - Implemented feedback priority levels and action tracking
+   - Created mechanisms to incorporate feedback in hypothesis evolution
+
+2. **Rich Interactive Interface**
+   - Redesigned the interactive CLI with comprehensive help and guidance
+   - Added commands for detailed hypothesis viewing and management
+   - Implemented direct hypothesis evolution based on user feedback
+   - Created resource submission and extraction capabilities
+   - Added research focus area management for directing exploration
+
+3. **Research Focus Area Management**
+   - Added keyword extraction for research focus areas
+   - Implemented focus area prioritization
+   - Enhanced task allocation to consider user-defined focus areas
+   - Created mechanisms for the system to explore specific directions
+
+4. **Knowledge Integration**
+   - Improved search result processing and integration
+   - Enhanced PDF extraction with better error handling
+   - Improved protocol generation for specific hypotheses
+
+5. **Feedback-Driven Evolution**
+   - Created a direct path from user feedback to hypothesis evolution
+   - Added tracking of feedback effects on evolution
+   - Implemented "human-directed" evolution strategy
+
+These improvements significantly enhance the collaborative nature of the system, making it more responsive to user input and better able to incorporate scientific expertise. The system now provides more ways for scientists to guide the research process, contribute their knowledge, and direct the exploration in ways that align with their research objectives.
+
+6. **Technical Improvements**
+   - Enhanced paper extraction system to better utilize the LLM provider for knowledge extraction
+   - Improved error handling and directory creation for knowledge graph persistence
+   - Fixed system initialization to properly pass the LLM provider to all components
+   - Ensured consistent resource management across different execution modes
+
+## Completed: Knowledge Synthesizer Implementation and Optimization (March 9, 2025)
+
+We've successfully implemented a comprehensive knowledge synthesizer that consolidates information from multiple sources including domain-specific databases, knowledge graphs, and web searches. This powerful addition enhances the system's ability to gather and synthesize scientific knowledge for hypothesis improvement.
+
+### Key Accomplishments
+
+1. **Implemented KnowledgeSynthesizer Class** ✅
+   - Created a robust KnowledgeSynthesizer class with comprehensive knowledge integration capabilities
+   - Implemented multiple source collection methods (knowledge graph, domain-specific databases, web search)
+   - Added robust error handling and fallback mechanisms for resilience
+   - Created proper LLM-powered synthesis generation with structured output
+   - Added support for storing and loading synthesis results
+   - Implemented SynthesisSource and SynthesisResult data classes for structured data handling
+
+2. **Fixed Integration with Evolution Agent** ✅
+   - Enhanced the EvolutionAgent with an improve_with_synthesis method
+   - Fixed initialization issues with proper async handling
+   - Implemented direct LLM provider passing to ensure proper functionality
+   - Added proper initialization flags and status tracking
+   - Created intelligent key term extraction for better queries
+   - Added robust error handling and fallback to standard improvement when needed
+
+3. **Enhanced Web Search Integration** ✅
+   - Fixed parameter naming in web search tools
+   - Implemented query simplification to prevent overly long queries
+   - Added proper context tracking for scientific queries
+   - Created specialized search types for scientific literature
+   - Enhanced content extraction from search results
+
+4. **Comprehensive Testing and Verification** ✅
+   - Created test scripts for verifying system functionality
+   - Added direct testing capability for the knowledge synthesizer
+   - Verified integration with the evolution agent
+   - Confirmed real-world functionality with scientific hypotheses
+   - Added comprehensive logging for better debugging
+
+These enhancements significantly improve the system's ability to consolidate knowledge from diverse sources, making it more effective at generating well-grounded scientific hypotheses. The knowledge synthesizer serves as a bridge between different knowledge sources, ensuring that the system can leverage a wide range of scientific information in the hypothesis evolution process.
+
+## Next Steps: Evaluation Framework and User Studies (March 9, 2025)
+
+With the knowledge synthesizer, improved user interaction capabilities, paper extraction system, and robust session management in place, we will now focus on addressing the remaining critical improvement areas, comprehensive evaluation, optimization, and user studies.
 
 1. **Develop comprehensive evaluation framework** 
    - Create benchmark suite with realistic scientific scenarios across multiple domains
@@ -687,6 +835,6 @@ With the improved project structure, enhanced paper extraction system, and robus
    - Add support for additional external tools and APIs
    - Implement domain-specific literature search optimizations
 
-The Watson Co-Scientist system has all major components implemented, and with the addition of the Paper Knowledge Extraction System, improved project structure, and robust session management, it now has a solid foundation for future development. The focus moving forward will be on evaluation, refinement, and optimization based on real-world usage and feedback.
+The Raul Co-Scientist system has all major components implemented, and with the addition of the Paper Knowledge Extraction System, improved project structure, and robust session management, it now has a solid foundation for future development. The focus moving forward will be on addressing the critical improvement areas, evaluation, refinement, and optimization based on real-world usage and feedback to create a truly effective scientific collaboration tool.
 
 This plan will be updated as development progresses and as user studies provide additional insights to enhance the system's capabilities.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Test script for multi-domain scientific database integration.
-This script tests the new cross-domain functionality in the Watson Co-Scientist system.
+This script tests the new cross-domain functionality in the Raul Co-Scientist system.
 """
 
 import os

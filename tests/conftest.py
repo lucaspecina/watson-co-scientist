@@ -1,5 +1,5 @@
 """
-Configuration for pytest in the Watson Co-Scientist project.
+Configuration for pytest in the Raul Co-Scientist project.
 """
 
 import os

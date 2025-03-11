@@ -1,4 +1,4 @@
-# Watson Co-Scientist
+# Raul Co-Scientist
 
 An AI system that assists scientists in generating, refining, and testing research hypotheses. This system serves as a collaborative partner, enhancing scientists' ability to explore complex scientific problems efficiently through multi-database scientific knowledge integration.
 
@@ -38,12 +38,16 @@ The system employs a multi-agent architecture integrated within an asynchronous 
   - Direct integration with PubMed, ArXiv, PubChem, UniProt, and other scientific databases
   - Cross-domain knowledge synthesis across multiple sources
   - Domain-specific knowledge retrieval and citation formatting
+  - Knowledge Synthesizer for consolidating information from diverse sources
+  - Intelligent source prioritization and relevance scoring
 
 - **Advanced Knowledge Processing**:
   - Multi-domain concurrent search and retrieval
   - Automatic domain detection for research questions
   - Cross-domain relationship mapping for interdisciplinary research
   - Dynamic knowledge weighting based on research context
+  - Knowledge synthesis with key concept extraction and connection detection
+  - Scientific entity and relationship discovery across multiple sources
 
 - **Scientist-in-the-loop**: The system is designed for collaboration with scientists, allowing them to guide the process
 - **Multi-agent architecture**: Specialized agents work together to generate, evaluate, and refine hypotheses
@@ -64,8 +68,8 @@ The system employs a multi-agent architecture integrated within an asynchronous 
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/watson-co-scientist.git
-cd watson-co-scientist
+git clone https://github.com/yourusername/raul-co-scientist.git
+cd raul-co-scientist
 
 # Create and activate a conda environment
 conda create -n co_scientist python=3.11
@@ -98,7 +102,7 @@ Note: The environment variable names have been updated to match Azure OpenAI's s
 
 ### Optional Dependencies
 
-The Watson Co-Scientist system includes a powerful Paper Knowledge Extraction System that benefits from several optional dependencies:
+The Raul Co-Scientist system includes a powerful Paper Knowledge Extraction System that benefits from several optional dependencies:
 
 1. **PyMuPDF (fitz)**: Enhances PDF processing capabilities for more accurate text and structure extraction
    ```bash
@@ -159,15 +163,36 @@ python main.py --config custom_config
 
 When running in interactive mode, you can use the following commands:
 
+##### Research & Session Commands
 - `goal: <text>` - Set a new research goal
 - `run` - Run 1 iteration
 - `run <N>` - Run N iterations
 - `state` - Print the current system state
 - `overview` - Generate and print a research overview
-- `protocols` - Show generated experimental protocols
-- `generate-protocol` - Generate an experimental protocol for a top hypothesis
+
+##### Hypothesis Management
+- `hypotheses` - List all hypotheses, sorted by rating
+- `hypothesis:ID` - View detailed information about a specific hypothesis
+- `add-hypothesis:<text>` - Add your own hypothesis
+- `feedback:ID <text>` - Provide feedback on a specific hypothesis
+- `evolve:ID` - Request evolution of a specific hypothesis
+
+##### Research Focus & Resources
+- `focus: <text>` - Add a research focus area to guide exploration
+- `focus-areas` - List all active research focus areas
+- `resource: <url/text>` - Add a resource (paper, URL, description)
+- `feedback` - List all feedback provided
+
+##### Protocol Management
+- `protocols` - List all experimental protocols
+- `protocol:ID` - Generate a protocol for a specific hypothesis
+- `generate-protocol` - Generate a protocol for a top hypothesis
+
+##### Knowledge Search & Synthesis
 - `search: <query>` - Search scientific databases across domains
-- `synthesize: <query>` - Synthesize knowledge across multiple scientific domains
+- `synthesize: <query>` - Synthesize knowledge across scientific domains
+
+##### System
 - `help` - Show help information
 - `exit` or `quit` - Exit the program
 
@@ -343,7 +368,7 @@ print(f"Hypotheses generated: {state['num_hypotheses']}")
 ### Project Structure
 
 ```
-watson-co-scientist/
+raul-co-scientist/
 ├── main.py                 # Main entry point
 ├── api_server.py           # API server script
 ├── requirements.txt        # Dependencies
@@ -369,9 +394,9 @@ pytest tests/
 
 ## System Functionality
 
-### How the Watson Co-Scientist Works
+### How the Raul Co-Scientist Works
 
-The Watson Co-Scientist follows a systematic approach to scientific hypothesis generation and evaluation:
+The Raul Co-Scientist follows a systematic approach to scientific hypothesis generation and evaluation:
 
 1. **Research Goal Specification**
    - The process begins with a research goal specified by a scientist in natural language
@@ -407,6 +432,7 @@ The Watson Co-Scientist follows a systematic approach to scientific hypothesis g
      - **Domain Knowledge Integration**: Grounding in specialized scientific knowledge
      - **Cross-domain Inspiration**: Applying concepts from other scientific fields
      - **Knowledge Graph Enhancement**: Using extracted scientific literature connections
+     - **Knowledge Synthesis**: Consolidating information from multiple scientific sources
      - **Out-of-box Thinking**: Generating unconventional alternatives
      - **Simplification**: Improving clarity while preserving core ideas
      - **Combination**: Merging strengths of multiple hypotheses

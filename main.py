@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Watson Co-Scientist: An AI system to assist scientists in hypothesis generation and research planning.
+Raul Co-Scientist: An AI system to assist scientists in hypothesis generation and research planning.
 This is the main entry point for the application.
 """
 
@@ -23,10 +23,10 @@ async def main_async():
     """Async main entry point for the Co-Scientist system."""
     # Set up logging
     logger = setup_logger()
-    logger.info("Starting Watson Co-Scientist system")
+    logger.info("Starting Raul Co-Scientist system")
     
     # Parse command line arguments
-    parser = argparse.ArgumentParser(description="Watson Co-Scientist: AI system to assist in scientific research")
+    parser = argparse.ArgumentParser(description="Raul Co-Scientist: AI system to assist in scientific research")
     parser.add_argument("--research_goal", type=str, help="The research goal to analyze")
     parser.add_argument("--resume_id", type=str, help="Resume an existing research goal by ID")
     parser.add_argument("--config", type=str, default="default", help="Configuration to use")

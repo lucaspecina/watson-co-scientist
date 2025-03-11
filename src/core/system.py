@@ -5,6 +5,7 @@ Coordinates agents and manages the overall workflow.
 
 import os
 import json
+import uuid
 import logging
 import asyncio
 import random
@@ -377,8 +378,11 @@ class CoScientistSystem:
     
     async def start_interactive_mode(self) -> None:
         """Start the system in interactive mode."""
-        print("Welcome to Watson Co-Scientist interactive mode!")
-        print("Enter a research goal to begin, or type 'exit' to quit.")
+        print("Welcome to Raul Co-Scientist interactive mode!")
+        print("Enter a research goal to begin, or type 'help' for available commands.")
+        
+        # Default user ID for the current session
+        default_user_id = str(uuid.uuid4())
         
         while True:
             user_input = input("> ")
@@ -438,6 +442,296 @@ class CoScientistSystem:
                     print(f"  {i}. {area.get('name', '')}")
                     print(f"     {area.get('description', '')[:100]}...")
                 
+            elif user_input == "hypotheses":
+                # List all hypotheses
+                if not self.current_research_goal:
+                    print("No research goal set. Please set a goal first.")
+                    continue
+                
+                # Get all hypotheses sorted by Elo rating
+                all_hypotheses = self.db.hypotheses.get_all()
+                sorted_hypotheses = sorted(all_hypotheses, key=lambda h: h.elo_rating if h.elo_rating is not None else 1200, reverse=True)
+                
+                if not sorted_hypotheses:
+                    print("No hypotheses have been generated yet.")
+                    continue
+                
+                print("\n============ HYPOTHESES ============")
+                for i, hypothesis in enumerate(sorted_hypotheses, 1):
+                    # Get source indicator
+                    source_indicator = {
+                        HypothesisSource.USER: "👤",
+                        HypothesisSource.SYSTEM: "🤖",
+                        HypothesisSource.EVOLVED: "🧬",
+                        HypothesisSource.COMBINED: "🔄"
+                    }.get(hypothesis.source, "")
+                    
+                    # Format the output
+                    print(f"{i}. {source_indicator} {hypothesis.title} (ID: {hypothesis.id[:8]})")
+                    print(f"   Summary: {hypothesis.summary[:100]}...")
+                    print(f"   Elo Rating: {hypothesis.elo_rating}")
+                    
+                    # Show scores if available
+                    scores = []
+                    if hypothesis.novelty_score is not None:
+                        scores.append(f"Novelty: {hypothesis.novelty_score:.1f}")
+                    if hypothesis.correctness_score is not None:
+                        scores.append(f"Correctness: {hypothesis.correctness_score:.1f}")
+                    if hypothesis.testability_score is not None:
+                        scores.append(f"Testability: {hypothesis.testability_score:.1f}")
+                    
+                    if scores:
+                        print(f"   Scores: {', '.join(scores)}")
+                    
+                    # Show citation count
+                    citation_count = len(hypothesis.citations) if hypothesis.citations else 0
+                    print(f"   Citations: {citation_count}")
+                    print()
+                
+                print("To view a specific hypothesis, use 'hypothesis:ID' (using the ID shown above)")
+                
+            elif user_input.startswith("hypothesis:"):
+                # Get ID from input
+                hypothesis_id = user_input[11:].strip()
+                
+                # First try to match by short ID prefix
+                all_hypotheses = self.db.hypotheses.get_all()
+                matching_hypotheses = [h for h in all_hypotheses if h.id.startswith(hypothesis_id)]
+                
+                if not matching_hypotheses:
+                    print(f"No hypothesis found with ID starting with {hypothesis_id}")
+                    continue
+                
+                # Use the first match
+                hypothesis = matching_hypotheses[0]
+                
+                # Get reviews for this hypothesis
+                reviews = [r for r in self.db.reviews.get_all() if r.hypothesis_id == hypothesis.id]
+                
+                # Display detailed hypothesis
+                print("\n============ HYPOTHESIS DETAILS ============")
+                print(f"Title: {hypothesis.title}")
+                print(f"ID: {hypothesis.id}")
+                print(f"Created: {hypothesis.created_at.strftime('%Y-%m-%d %H:%M')}")
+                print(f"Source: {hypothesis.source.value}")
+                print(f"Creator: {hypothesis.creator}")
+                print(f"Status: {hypothesis.status.value}")
+                print(f"\nSummary: {hypothesis.summary}")
+                print(f"\nDescription:\n{hypothesis.description}")
+                
+                if hypothesis.supporting_evidence:
+                    print("\nSupporting Evidence:")
+                    for i, evidence in enumerate(hypothesis.supporting_evidence, 1):
+                        print(f"  {i}. {evidence}")
+                
+                if hypothesis.citations:
+                    print("\nCitations:")
+                    for i, citation in enumerate(hypothesis.citations, 1):
+                        # Handle both Citation objects and citation IDs
+                        if isinstance(citation, str):
+                            citation_obj = self.db.citations.get(citation)
+                            if citation_obj:
+                                title = citation_obj.title
+                                authors = ", ".join(citation_obj.authors[:3]) if citation_obj.authors else "Unknown"
+                                year = citation_obj.year if citation_obj.year else "N/A"
+                                print(f"  {i}. {title} ({authors}, {year})")
+                            else:
+                                print(f"  {i}. Citation ID: {citation}")
+                        else:
+                            title = citation.title
+                            authors = ", ".join(citation.authors[:3]) if citation.authors else "Unknown"
+                            year = citation.year if citation.year else "N/A"
+                            print(f"  {i}. {title} ({authors}, {year})")
+                
+                if reviews:
+                    print("\nReviews:")
+                    for i, review in enumerate(reviews, 1):
+                        print(f"  {i}. {review.review_type.capitalize()} Review by {review.reviewer}")
+                        if review.overall_score is not None:
+                            print(f"     Score: {review.overall_score:.1f}/10")
+                        print(f"     {review.text[:100]}...")
+                
+                print("\nOptions for this hypothesis:")
+                print("  feedback:ID Your feedback here - Provide feedback on this hypothesis")
+                print("  evolve:ID - Request evolution of this hypothesis")
+                print("  protocol:ID - Generate experimental protocol for this hypothesis")
+                
+            elif user_input.startswith("feedback:"):
+                # Extract the parts: "feedback:ID Your feedback text"
+                parts = user_input[9:].strip().split(" ", 1)
+                
+                if len(parts) < 2:
+                    print("Please provide both an ID and feedback text. Format: feedback:ID Your feedback here")
+                    continue
+                
+                hypothesis_id = parts[0]
+                feedback_text = parts[1]
+                
+                # Find the hypothesis
+                all_hypotheses = self.db.hypotheses.get_all()
+                matching_hypotheses = [h for h in all_hypotheses if h.id.startswith(hypothesis_id)]
+                
+                if not matching_hypotheses:
+                    print(f"No hypothesis found with ID starting with {hypothesis_id}")
+                    continue
+                
+                # Use the first match
+                hypothesis = matching_hypotheses[0]
+                
+                # Create feedback
+                feedback = UserFeedback(
+                    research_goal_id=self.current_research_goal.id,
+                    hypothesis_id=hypothesis.id,
+                    user_id=default_user_id,
+                    feedback_type="critique",
+                    text=feedback_text,
+                    requires_action=True
+                )
+                
+                # Save feedback
+                self.db.user_feedback.save(feedback)
+                
+                print(f"Feedback recorded for hypothesis: {hypothesis.title}")
+                print("This feedback will be used in the next iteration to improve the hypothesis.")
+                
+            elif user_input.startswith("evolve:"):
+                # Extract hypothesis ID
+                hypothesis_id = user_input[7:].strip()
+                
+                # Find the hypothesis
+                all_hypotheses = self.db.hypotheses.get_all()
+                matching_hypotheses = [h for h in all_hypotheses if h.id.startswith(hypothesis_id)]
+                
+                if not matching_hypotheses:
+                    print(f"No hypothesis found with ID starting with {hypothesis_id}")
+                    continue
+                
+                # Use the first match
+                hypothesis = matching_hypotheses[0]
+                
+                print(f"Evolving hypothesis: {hypothesis.title}")
+                
+                # Manually trigger hypothesis evolution
+                try:
+                    improved_hypothesis = await self.evolution.improve_hypothesis(
+                        hypothesis,
+                        self.current_research_goal,
+                        strategy="human_directed"
+                    )
+                    
+                    # Save the new hypothesis
+                    if improved_hypothesis:
+                        improved_hypothesis.parent_hypotheses = [hypothesis.id]
+                        improved_hypothesis.source = HypothesisSource.EVOLVED
+                        self.db.hypotheses.save(improved_hypothesis)
+                        
+                        print(f"Successfully evolved hypothesis into: {improved_hypothesis.title}")
+                        print(f"New hypothesis ID: {improved_hypothesis.id[:8]}")
+                    else:
+                        print("Failed to evolve hypothesis.")
+                except Exception as e:
+                    print(f"Error evolving hypothesis: {e}")
+                
+            elif user_input.startswith("focus:"):
+                # Add a research focus area
+                focus_text = user_input[6:].strip()
+                
+                if not focus_text:
+                    print("Please provide a description for the research focus area.")
+                    continue
+                
+                # Create a new research focus
+                focus = ResearchFocus(
+                    research_goal_id=self.current_research_goal.id,
+                    user_id=default_user_id,
+                    title=f"Focus area: {focus_text[:30]}",
+                    description=focus_text,
+                    priority=1.0,
+                    active=True
+                )
+                
+                # Extract keywords
+                try:
+                    # Extract keywords using LLM
+                    if hasattr(self, 'supervisor'):
+                        keywords = await self.supervisor.extract_keywords(focus_text)
+                        if keywords:
+                            focus.keywords = keywords
+                except Exception as e:
+                    print(f"Warning: Could not extract keywords: {e}")
+                
+                # Save to database
+                self.db.research_focus.save(focus)
+                
+                print(f"Added new research focus area: {focus.title}")
+                print("This focus area will guide future hypothesis generation and evolution.")
+                
+            elif user_input == "focus-areas":
+                # List active research focus areas
+                if not self.current_research_goal:
+                    print("No research goal set. Please set a goal first.")
+                    continue
+                
+                # Get all focus areas for this research goal
+                all_focus = self.db.research_focus.get_all()
+                relevant_focus = [f for f in all_focus if f.research_goal_id == self.current_research_goal.id and f.active]
+                
+                if not relevant_focus:
+                    print("No active research focus areas. Add one with 'focus: Your focus area description'")
+                    continue
+                
+                print("\n============ ACTIVE RESEARCH FOCUS AREAS ============")
+                for i, focus in enumerate(relevant_focus, 1):
+                    print(f"{i}. {focus.title}")
+                    print(f"   Description: {focus.description}")
+                    if focus.keywords:
+                        print(f"   Keywords: {', '.join(focus.keywords)}")
+                    print(f"   Priority: {focus.priority}")
+                    print()
+                
+            elif user_input.startswith("resource:"):
+                # Add an external resource
+                resource_text = user_input[9:].strip()
+                
+                if not resource_text:
+                    print("Please provide details for the resource.")
+                    continue
+                
+                # Check if it looks like a URL
+                is_url = resource_text.startswith(("http://", "https://"))
+                
+                # Create appropriate feedback type
+                feedback = UserFeedback(
+                    research_goal_id=self.current_research_goal.id,
+                    user_id=default_user_id,
+                    feedback_type="resource",
+                    text=f"Please consider this resource in your analysis: {resource_text}",
+                    resources=[{"url" if is_url else "description": resource_text}],
+                    requires_action=True
+                )
+                
+                # Save to database
+                self.db.user_feedback.save(feedback)
+                
+                print(f"Added new resource: {resource_text[:50]}...")
+                print("This resource will be considered in future iterations.")
+                
+                # If it's a URL and looks like a PDF, ask if they want to extract it
+                if is_url and resource_text.endswith((".pdf", ".PDF")):
+                    print("\nThis appears to be a PDF link. Would you like to extract knowledge from it? (y/n)")
+                    extract_response = input("> ")
+                    
+                    if extract_response.lower() in ["y", "yes"]:
+                        print("Attempting to extract knowledge from PDF...")
+                        try:
+                            if hasattr(self, 'evolution') and hasattr(self.evolution, 'paper_extraction'):
+                                await self.evolution.paper_extraction.extract_from_url(resource_text)
+                                print("Successfully extracted knowledge from PDF and added to knowledge graph.")
+                            else:
+                                print("Paper extraction system not available.")
+                        except Exception as e:
+                            print(f"Error extracting from PDF: {e}")
+                
             elif user_input == "protocols":
                 # List experimental protocols
                 if not self.current_research_goal:
@@ -469,8 +763,36 @@ class CoScientistSystem:
                     print(f"   Created: {protocol.created_at.strftime('%Y-%m-%d %H:%M')}")
                     print()
                 
+            elif user_input.startswith("protocol:"):
+                # Generate a protocol for a specific hypothesis
+                hypothesis_id = user_input[9:].strip()
+                
+                # Find the hypothesis
+                all_hypotheses = self.db.hypotheses.get_all()
+                matching_hypotheses = [h for h in all_hypotheses if h.id.startswith(hypothesis_id)]
+                
+                if not matching_hypotheses:
+                    print(f"No hypothesis found with ID starting with {hypothesis_id}")
+                    continue
+                
+                # Use the first match
+                hypothesis = matching_hypotheses[0]
+                
+                print(f"Generating experimental protocol for hypothesis: {hypothesis.title}")
+                
+                # Generate the protocol
+                try:
+                    protocol = await self._generate_protocol_for_hypothesis(hypothesis)
+                    if protocol:
+                        print(f"Generated protocol: {protocol.title}")
+                        print(f"Protocol ID: {protocol.id[:8]}")
+                    else:
+                        print("Failed to generate protocol.")
+                except Exception as e:
+                    print(f"Error generating protocol: {e}")
+                
             elif user_input == "generate-protocol":
-                # Generate a new protocol
+                # Generate a new protocol for a top hypothesis
                 if not self.current_research_goal:
                     print("No research goal set. Please set a goal first.")
                     continue
@@ -525,6 +847,39 @@ class CoScientistSystem:
                                 print(f"     URL: {result['url']}")
                             print()
                     
+                    # Ask if the user wants to add any of these as resources
+                    print("\nWould you like to add any of these results as resources? (Enter numbers separated by commas, or 'n' to skip)")
+                    add_response = input("> ")
+                    
+                    if add_response.lower() not in ["n", "no", ""]:
+                        try:
+                            # Parse selected indices
+                            selected_indices = [int(idx.strip()) - 1 for idx in add_response.split(",")]
+                            
+                            # Flatten results from all domains
+                            all_results = []
+                            for domain_results in results.values():
+                                all_results.extend(domain_results)
+                            
+                            # Add selected results as resources
+                            for idx in selected_indices:
+                                if 0 <= idx < len(all_results):
+                                    result = all_results[idx]
+                                    resource_url = result.get('url')
+                                    if resource_url:
+                                        resource_feedback = UserFeedback(
+                                            research_goal_id=self.current_research_goal.id,
+                                            user_id=default_user_id,
+                                            feedback_type="resource",
+                                            text=f"Please consider this resource: {result.get('title', 'Untitled article')}",
+                                            resources=[{"url": resource_url, "title": result.get('title'), "type": "paper"}],
+                                            requires_action=True
+                                        )
+                                        self.db.user_feedback.save(resource_feedback)
+                                        print(f"Added resource: {result.get('title')}")
+                        except Exception as e:
+                            print(f"Error adding resources: {e}")
+                    
                 except Exception as e:
                     print(f"Error searching scientific databases: {e}")
                     
@@ -563,28 +918,136 @@ class CoScientistSystem:
                     if synthesis:
                         highlights = self.cross_domain_synthesizer.format_synthesis_highlights(synthesis)
                         print("\n" + highlights)
+                        
+                        # Ask if the user wants to add this as context
+                        print("\nWould you like to add this synthesis as context for future hypotheses? (y/n)")
+                        add_response = input("> ")
+                        
+                        if add_response.lower() in ["y", "yes"]:
+                            context_feedback = UserFeedback(
+                                research_goal_id=self.current_research_goal.id,
+                                user_id=default_user_id,
+                                feedback_type="context",
+                                text=f"Synthesis of knowledge for query: {query}\n\n{highlights}",
+                                requires_action=True
+                            )
+                            self.db.user_feedback.save(context_feedback)
+                            print("Added synthesis as research context.")
                     else:
                         print("No synthesis results available.")
                     
                 except Exception as e:
                     print(f"Error synthesizing knowledge: {e}")
                 
+            elif user_input.startswith("add-hypothesis:"):
+                # Add a user hypothesis
+                hypothesis_text = user_input[15:].strip()
+                
+                if not hypothesis_text:
+                    print("Please provide a hypothesis after 'add-hypothesis:'")
+                    continue
+                
+                print("Adding your hypothesis. Let's add some details...")
+                print("\nPlease provide a title for your hypothesis:")
+                title = input("> ")
+                
+                print("\nPlease provide a brief summary:")
+                summary = input("> ")
+                
+                # Create the hypothesis
+                hypothesis = Hypothesis(
+                    title=title,
+                    description=hypothesis_text,
+                    summary=summary,
+                    creator="user",
+                    supporting_evidence=[],
+                    source=HypothesisSource.USER,
+                    status=HypothesisStatus.GENERATED,
+                    user_id=default_user_id
+                )
+                
+                # Save to database
+                self.db.hypotheses.save(hypothesis)
+                
+                print(f"Added your hypothesis with ID: {hypothesis.id[:8]}")
+                print("This hypothesis will be evaluated in the next iteration.")
+                
+            elif user_input == "feedback":
+                # List all user feedback
+                if not self.current_research_goal:
+                    print("No research goal set. Please set a goal first.")
+                    continue
+                
+                # Get all feedback for this research goal
+                all_feedback = self.db.user_feedback.get_all()
+                relevant_feedback = [f for f in all_feedback if f.research_goal_id == self.current_research_goal.id]
+                
+                if not relevant_feedback:
+                    print("No feedback has been provided yet.")
+                    continue
+                
+                print("\n============ USER FEEDBACK ============")
+                for i, feedback in enumerate(relevant_feedback, 1):
+                    print(f"{i}. Type: {feedback.feedback_type}")
+                    print(f"   Created: {feedback.created_at.strftime('%Y-%m-%d %H:%M')}")
+                    print(f"   {feedback.text[:100]}...")
+                    
+                    if feedback.resources:
+                        print(f"   Resources: {len(feedback.resources)}")
+                    
+                    if feedback.requires_action:
+                        action_status = "Pending" if not feedback.action_taken else "Completed"
+                        print(f"   Action status: {action_status}")
+                    
+                    print()
+                
             else:
                 print("Unknown command. Type 'help' for a list of commands.")
     
     def _print_help(self) -> None:
         """Print help information."""
-        print("\nCommands:")
-        print("  goal: <text>     - Set a new research goal")
-        print("  run [N]          - Run 1 or N iterations")
-        print("  state            - Print the current state")
-        print("  overview         - Generate and print a research overview")
-        print("  protocols        - Show generated experimental protocols")
-        print("  generate-protocol- Generate an experimental protocol for a top hypothesis")
-        print("  search: <query>  - Search scientific databases across domains")
-        print("  synthesize: <query> - Synthesize knowledge across multiple scientific domains")
-        print("  help             - Print this help message")
-        print("  exit             - Exit interactive mode")
+        print("\n============ RAUL CO-SCIENTIST COMMANDS ============")
+        
+        print("\nResearch & Session Commands:")
+        print("  goal: <text>       - Set a new research goal")
+        print("  run [N]            - Run 1 or N iterations")
+        print("  state              - Print the current system state")
+        print("  overview           - Generate and print a research overview")
+        
+        print("\nHypothesis Management:")
+        print("  hypotheses         - List all hypotheses, sorted by rating")
+        print("  hypothesis:ID      - View detailed information about a specific hypothesis")
+        print("  add-hypothesis:<text> - Add your own hypothesis") 
+        print("  feedback:ID <text> - Provide feedback on a specific hypothesis")
+        print("  evolve:ID          - Request evolution of a specific hypothesis")
+        
+        print("\nResearch Focus & Resources:")
+        print("  focus: <text>      - Add a research focus area to guide exploration")
+        print("  focus-areas        - List all active research focus areas")
+        print("  resource: <url/text> - Add a resource (paper, URL, description)")
+        print("  feedback           - List all feedback provided")
+        
+        print("\nProtocol Management:")
+        print("  protocols          - List all experimental protocols")
+        print("  protocol:ID        - Generate a protocol for a specific hypothesis")
+        print("  generate-protocol  - Generate a protocol for a top hypothesis")
+        
+        print("\nKnowledge Search & Synthesis:")
+        print("  search: <query>    - Search scientific databases across domains")
+        print("  synthesize: <query> - Synthesize knowledge across scientific domains")
+        
+        print("\nSystem:")
+        print("  help               - Show this help information")
+        print("  exit or quit       - Exit the program")
+        
+        print("\nGuidelines for Effective Use:")
+        print("  1. Start with a clear research goal using 'goal:' command")
+        print("  2. Run iterations to generate initial hypotheses")
+        print("  3. Provide feedback on generated hypotheses to guide improvements")
+        print("  4. Add research focus areas to direct exploration")
+        print("  5. Add resources like papers or URLs for deeper knowledge")
+        print("  6. Use search and synthesize for targeted knowledge acquisition")
+        print("  7. Add your own hypotheses to combine with system-generated ones")
     
     def _print_state(self) -> None:
         """Print the current state."""
@@ -1239,6 +1702,36 @@ class CoScientistSystem:
             else:
                 hypothesis = random.choice(hypotheses_needing_protocols)
             
+            # Use the dedicated protocol generation method
+            protocol = await self._generate_protocol_for_hypothesis(hypothesis)
+            
+            if protocol:
+                logger.info(f"Generated experimental protocol {protocol.id} for hypothesis {hypothesis.id}")
+            else:
+                logger.warning(f"Failed to generate protocol for hypothesis {hypothesis.id}")
+                
+        except Exception as e:
+            logger.error(f"Error generating experimental protocol: {e}", exc_info=True)
+            
+    async def _generate_protocol_for_hypothesis(self, hypothesis: Hypothesis) -> Optional[ExperimentalProtocol]:
+        """
+        Generate an experimental protocol for a specific hypothesis.
+        
+        Args:
+            hypothesis (Hypothesis): The hypothesis to generate a protocol for.
+            
+        Returns:
+            Optional[ExperimentalProtocol]: The generated protocol, or None if generation failed.
+        """
+        try:
+            # Check if we already have a protocol for this hypothesis
+            existing_protocols = [p for p in self.db.experimental_protocols.get_all() 
+                                if p.hypothesis_id == hypothesis.id]
+            
+            if existing_protocols:
+                logger.info(f"Protocol already exists for hypothesis {hypothesis.id}")
+                return existing_protocols[0]
+            
             # Generate protocol
             protocol = await self.generation.generate_experimental_protocol(
                 hypothesis, 
@@ -1248,12 +1741,17 @@ class CoScientistSystem:
             if protocol:
                 # Save protocol to database
                 self.db.experimental_protocols.save(protocol)
-                logger.info(f"Generated experimental protocol {protocol.id} for hypothesis {hypothesis.id}")
+                
+                # Update state counter
+                self.current_state["num_protocols"] = self.current_state.get("num_protocols", 0) + 1
+                
+                return protocol
             else:
-                logger.warning(f"Failed to generate protocol for hypothesis {hypothesis.id}")
+                return None
                 
         except Exception as e:
-            logger.error(f"Error generating experimental protocol: {e}", exc_info=True)
+            logger.error(f"Error generating protocol for hypothesis {hypothesis.id}: {e}", exc_info=True)
+            return None
             
     async def _review_protocol(self, protocol: ExperimentalProtocol, hypothesis: Hypothesis) -> None:
         """
