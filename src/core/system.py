@@ -377,7 +377,7 @@ class CoScientistSystem:
         return research_overview
     
     async def start_interactive_mode(self) -> None:
-        """Start the system in interactive mode."""
+        """Start the system in interactive mode with free-form commands."""
         print("Welcome to Raul Co-Scientist interactive mode!")
         print("Enter a research goal to begin, or type 'help' for available commands.")
         
@@ -1003,6 +1003,432 @@ class CoScientistSystem:
                 
             else:
                 print("Unknown command. Type 'help' for a list of commands.")
+    
+    async def start_structured_interactive_mode(self) -> None:
+        """
+        Start the system in a structured, step-by-step interactive mode that follows
+        the specified workflow in ETHOS.md:
+        
+        1. Set research goal
+        2. Initial iteration to generate hypotheses
+        3. Present results and get feedback
+        4. Incorporate feedback and run another iteration
+        5. Repeat steps 3-4 until satisfied
+        """
+        print("\n================ RAUL CO-SCIENTIST ================")
+        print("Welcome to the structured interactive mode!\n")
+        print("This mode will guide you through the complete research workflow:")
+        print("  1. Set your research goal")
+        print("  2. Generate initial hypotheses and research directions")
+        print("  3. Provide feedback and refine the research")
+        print("  4. Iterate to improve hypotheses based on your feedback")
+        print("\nYou can exit at any time by typing 'exit' or 'quit'.")
+        
+        # Default user ID for the current session
+        default_user_id = str(uuid.uuid4())
+        
+        # Step 1: Set Research Goal
+        if not self.current_research_goal:
+            print("\n============ STEP 1: SET RESEARCH GOAL ============")
+            print("Please enter your research goal or question:")
+            
+            while True:
+                research_goal_text = input("> ")
+                
+                if research_goal_text.lower() in ["exit", "quit"]:
+                    print("Exiting interactive mode.")
+                    return
+                
+                if not research_goal_text or len(research_goal_text) < 10:
+                    print("Please enter a meaningful research goal (at least 10 characters).")
+                    continue
+                    
+                print(f"Analyzing research goal: {research_goal_text[:100]}...")
+                
+                try:
+                    await self.analyze_research_goal(research_goal_text)
+                    print(f"Research goal set with ID: {self.current_research_goal.id}")
+                    break
+                except Exception as e:
+                    print(f"Error setting research goal: {e}")
+                    print("Please try again with a different research goal:")
+                    
+        # If we're resuming an existing goal, print it for reference
+        else:
+            print("\n============ RESUMING EXISTING RESEARCH GOAL ============")
+            print(f"Current research goal: {self.current_research_goal.text[:150]}...")
+            print(f"Goal ID: {self.current_research_goal.id}")
+        
+        iteration_count = 0
+        
+        while True:
+            # Ask if user wants to add additional context before the next iteration
+            if iteration_count > 0:
+                print("\n============ ADDITIONAL CONTEXT ============")
+                print("Before the next iteration, would you like to add any of the following?")
+                print("1. Research focus areas (guide exploration)")
+                print("2. External resources (papers, URLs, etc.)")
+                print("3. Your own hypothesis")
+                print("4. None - continue to next iteration")
+                
+                context_choice = input("Enter your choice (1-4): ")
+                
+                if context_choice.lower() in ["exit", "quit"]:
+                    print("Exiting interactive mode.")
+                    return
+                
+                if context_choice == "1":
+                    # Add research focus
+                    print("\nPlease describe a specific focus area for the research:")
+                    focus_text = input("> ")
+                    
+                    if focus_text.lower() in ["exit", "quit"]:
+                        print("Exiting interactive mode.")
+                        return
+                    
+                    if not focus_text:
+                        print("No focus area added.")
+                    else:
+                        # Create a new research focus
+                        focus = ResearchFocus(
+                            research_goal_id=self.current_research_goal.id,
+                            user_id=default_user_id,
+                            title=f"Focus area: {focus_text[:30]}",
+                            description=focus_text,
+                            priority=1.0,
+                            active=True
+                        )
+                        
+                        # Extract keywords
+                        try:
+                            # Extract keywords using LLM
+                            if hasattr(self, 'supervisor'):
+                                keywords = await self.supervisor.extract_keywords(focus_text)
+                                if keywords:
+                                    focus.keywords = keywords
+                        except Exception as e:
+                            print(f"Warning: Could not extract keywords: {e}")
+                        
+                        # Save to database
+                        self.db.research_focus.save(focus)
+                        
+                        print(f"Added new research focus area: {focus.title}")
+                
+                elif context_choice == "2":
+                    # Add external resource
+                    print("\nPlease enter a resource URL or brief description:")
+                    resource_text = input("> ")
+                    
+                    if resource_text.lower() in ["exit", "quit"]:
+                        print("Exiting interactive mode.")
+                        return
+                    
+                    if not resource_text:
+                        print("No resource added.")
+                    else:
+                        # Check if it looks like a URL
+                        is_url = resource_text.startswith(("http://", "https://"))
+                        
+                        # Create appropriate feedback type
+                        feedback = UserFeedback(
+                            research_goal_id=self.current_research_goal.id,
+                            user_id=default_user_id,
+                            feedback_type="resource",
+                            text=f"Please consider this resource in your analysis: {resource_text}",
+                            resources=[{"url" if is_url else "description": resource_text}],
+                            requires_action=True
+                        )
+                        
+                        # Save to database
+                        self.db.user_feedback.save(feedback)
+                        
+                        print(f"Added new resource: {resource_text[:50]}...")
+                        
+                        # If it's a URL and looks like a PDF, ask if they want to extract it
+                        if is_url and resource_text.endswith((".pdf", ".PDF")):
+                            print("\nThis appears to be a PDF link. Would you like to extract knowledge from it? (y/n)")
+                            extract_response = input("> ")
+                            
+                            if extract_response.lower() in ["y", "yes"]:
+                                print("Attempting to extract knowledge from PDF...")
+                                try:
+                                    if hasattr(self, 'evolution') and hasattr(self.evolution, 'paper_extraction'):
+                                        await self.evolution.paper_extraction.extract_from_url(resource_text)
+                                        print("Successfully extracted knowledge from PDF and added to knowledge graph.")
+                                    else:
+                                        print("Paper extraction system not available.")
+                                except Exception as e:
+                                    print(f"Error extracting from PDF: {e}")
+                                    
+                elif context_choice == "3":
+                    # Add user hypothesis
+                    print("\nPlease provide your hypothesis:")
+                    hypothesis_text = input("> ")
+                    
+                    if hypothesis_text.lower() in ["exit", "quit"]:
+                        print("Exiting interactive mode.")
+                        return
+                    
+                    if not hypothesis_text:
+                        print("No hypothesis added.")
+                    else:
+                        print("\nPlease provide a title for your hypothesis:")
+                        title = input("> ")
+                        
+                        print("\nPlease provide a brief summary:")
+                        summary = input("> ")
+                        
+                        # Create the hypothesis
+                        hypothesis = Hypothesis(
+                            title=title,
+                            description=hypothesis_text,
+                            summary=summary,
+                            creator="user",
+                            supporting_evidence=[],
+                            source=HypothesisSource.USER,
+                            status=HypothesisStatus.GENERATED,
+                            user_id=default_user_id
+                        )
+                        
+                        # Save to database
+                        self.db.hypotheses.save(hypothesis)
+                        
+                        print(f"Added your hypothesis with ID: {hypothesis.id[:8]}")
+            
+            # Step 2/4: Run iteration
+            iteration_count += 1
+            print(f"\n============ ITERATION {iteration_count}: GENERATING HYPOTHESES ============")
+            print("Running one iteration to generate and evaluate hypotheses...")
+            
+            try:
+                # Run one iteration
+                state = await self.run_iteration()
+                print("Iteration completed successfully!")
+                print(f"  Hypotheses: {state['num_hypotheses']}")
+                print(f"  Reviews: {state['num_reviews']}")
+                print(f"  Tournament matches: {state['num_tournament_matches']}")
+                
+                # Generate a research overview
+                print("\nGenerating research overview...")
+                overview = await self._generate_research_overview()
+                
+                # Step 3: Present Results and Get Feedback
+                print("\n============ RESEARCH RESULTS ============")
+                
+                if overview:
+                    print(f"\nTitle: {overview.title}")
+                    print(f"\nSummary: {overview.summary}")
+                    print("\nResearch Areas:")
+                    for i, area in enumerate(overview.research_areas, 1):
+                        print(f"  {i}. {area.get('name', '')}")
+                        print(f"     {area.get('description', '')[:150]}...")
+                        print("")
+                
+                # Show top hypotheses
+                all_hypotheses = self.db.hypotheses.get_all()
+                sorted_hypotheses = sorted(all_hypotheses, key=lambda h: h.elo_rating if h.elo_rating is not None else 1200, reverse=True)
+                top_hypotheses = sorted_hypotheses[:5]  # Show top 5 hypotheses
+                
+                if top_hypotheses:
+                    print("\nTop Hypotheses:")
+                    for i, hypothesis in enumerate(top_hypotheses, 1):
+                        # Get source indicator
+                        source_indicator = {
+                            HypothesisSource.USER: "👤",
+                            HypothesisSource.SYSTEM: "🤖",
+                            HypothesisSource.EVOLVED: "🧬",
+                            HypothesisSource.COMBINED: "🔄"
+                        }.get(hypothesis.source, "")
+                        
+                        # Format the output
+                        print(f"  {i}. {source_indicator} {hypothesis.title} (ID: {hypothesis.id[:8]})")
+                        print(f"     Summary: {hypothesis.summary[:150]}...")
+                        
+                        # Show scores if available
+                        scores = []
+                        if hypothesis.novelty_score is not None:
+                            scores.append(f"Novelty: {hypothesis.novelty_score:.1f}")
+                        if hypothesis.correctness_score is not None:
+                            scores.append(f"Correctness: {hypothesis.correctness_score:.1f}")
+                        if hypothesis.testability_score is not None:
+                            scores.append(f"Testability: {hypothesis.testability_score:.1f}")
+                        
+                        if scores:
+                            print(f"     Scores: {', '.join(scores)}")
+                        print("")
+                else:
+                    print("\nNo hypotheses generated yet.")
+                
+                # Get feedback for the next iteration
+                print("\n============ FEEDBACK ============")
+                print("How would you like to proceed?")
+                print("1. View hypothesis details")
+                print("2. Provide general feedback for the next iteration")
+                print("3. Run another iteration")
+                print("4. Switch to free-form command mode")
+                print("5. Exit")
+                
+                while True:
+                    feedback_choice = input("Enter your choice (1-5): ")
+                    
+                    if feedback_choice.lower() in ["exit", "quit", "5"]:
+                        print("Exiting interactive mode.")
+                        return
+                    
+                    if feedback_choice == "1":
+                        # View hypothesis details
+                        print("\nEnter the number or ID of the hypothesis to view:")
+                        hypothesis_input = input("> ")
+                        
+                        if hypothesis_input.lower() in ["exit", "quit"]:
+                            print("Exiting interactive mode.")
+                            return
+                        
+                        # Check if input is a number (index) or ID
+                        try:
+                            if hypothesis_input.isdigit() and 1 <= int(hypothesis_input) <= len(top_hypotheses):
+                                hypothesis = top_hypotheses[int(hypothesis_input) - 1]
+                            else:
+                                # Try to match by ID prefix
+                                matching_hypotheses = [h for h in all_hypotheses if h.id.startswith(hypothesis_input)]
+                                if not matching_hypotheses:
+                                    print(f"No hypothesis found with ID starting with {hypothesis_input}")
+                                    continue
+                                hypothesis = matching_hypotheses[0]
+                            
+                            # Display detailed hypothesis
+                            print("\n============ HYPOTHESIS DETAILS ============")
+                            print(f"Title: {hypothesis.title}")
+                            print(f"ID: {hypothesis.id}")
+                            print(f"Created: {hypothesis.created_at.strftime('%Y-%m-%d %H:%M')}")
+                            print(f"Source: {hypothesis.source.value}")
+                            print(f"Creator: {hypothesis.creator}")
+                            print(f"Status: {hypothesis.status.value}")
+                            print(f"\nSummary: {hypothesis.summary}")
+                            print(f"\nDescription:\n{hypothesis.description}")
+                            
+                            # Get reviews for this hypothesis
+                            reviews = [r for r in self.db.reviews.get_all() if r.hypothesis_id == hypothesis.id]
+                            
+                            if reviews:
+                                print("\nReviews:")
+                                for i, review in enumerate(reviews, 1):
+                                    print(f"  {i}. {review.review_type.capitalize()} Review by {review.reviewer}")
+                                    if review.overall_score is not None:
+                                        print(f"     Score: {review.overall_score:.1f}/10")
+                                    print(f"     {review.text[:150]}...")
+                            
+                            # Ask if user wants to provide feedback on this hypothesis
+                            print("\nWould you like to provide feedback on this hypothesis? (y/n)")
+                            provide_feedback = input("> ")
+                            
+                            if provide_feedback.lower() in ["y", "yes"]:
+                                print("\nPlease enter your feedback for this hypothesis:")
+                                feedback_text = input("> ")
+                                
+                                if feedback_text and feedback_text.lower() not in ["exit", "quit"]:
+                                    # Create feedback
+                                    feedback = UserFeedback(
+                                        research_goal_id=self.current_research_goal.id,
+                                        hypothesis_id=hypothesis.id,
+                                        user_id=default_user_id,
+                                        feedback_type="critique",
+                                        text=feedback_text,
+                                        requires_action=True
+                                    )
+                                    
+                                    # Save feedback
+                                    self.db.user_feedback.save(feedback)
+                                    
+                                    print(f"Feedback recorded for hypothesis: {hypothesis.title}")
+                            
+                            # Ask if user wants to evolve this hypothesis
+                            print("\nWould you like to evolve this hypothesis? (y/n)")
+                            evolve_response = input("> ")
+                            
+                            if evolve_response.lower() in ["y", "yes"]:
+                                print(f"Evolving hypothesis: {hypothesis.title}")
+                                
+                                # Manually trigger hypothesis evolution
+                                try:
+                                    improved_hypothesis = await self.evolution.improve_hypothesis(
+                                        hypothesis,
+                                        self.current_research_goal,
+                                        strategy="human_directed"
+                                    )
+                                    
+                                    # Save the new hypothesis
+                                    if improved_hypothesis:
+                                        improved_hypothesis.parent_hypotheses = [hypothesis.id]
+                                        improved_hypothesis.source = HypothesisSource.EVOLVED
+                                        self.db.hypotheses.save(improved_hypothesis)
+                                        
+                                        print(f"Successfully evolved hypothesis into: {improved_hypothesis.title}")
+                                        print(f"New hypothesis ID: {improved_hypothesis.id[:8]}")
+                                    else:
+                                        print("Failed to evolve hypothesis.")
+                                except Exception as e:
+                                    print(f"Error evolving hypothesis: {e}")
+                        
+                        except Exception as e:
+                            print(f"Error viewing hypothesis: {e}")
+                        
+                        # After viewing, go back to feedback menu
+                        print("\n============ FEEDBACK ============")
+                        print("How would you like to proceed?")
+                        print("1. View hypothesis details")
+                        print("2. Provide general feedback for the next iteration")
+                        print("3. Run another iteration")
+                        print("4. Switch to free-form command mode")
+                        print("5. Exit")
+                    
+                    elif feedback_choice == "2":
+                        # Provide general feedback
+                        print("\nPlease enter your general feedback for the next iteration:")
+                        general_feedback = input("> ")
+                        
+                        if general_feedback.lower() in ["exit", "quit"]:
+                            print("Exiting interactive mode.")
+                            return
+                        
+                        if general_feedback:
+                            # Create general feedback
+                            feedback = UserFeedback(
+                                research_goal_id=self.current_research_goal.id,
+                                user_id=default_user_id,
+                                feedback_type="general",
+                                text=general_feedback,
+                                requires_action=True
+                            )
+                            
+                            # Save feedback
+                            self.db.user_feedback.save(feedback)
+                            
+                            print("General feedback recorded. Will be used in the next iteration.")
+                        
+                        # Go back to main loop - will proceed to next iteration
+                        break
+                    
+                    elif feedback_choice == "3":
+                        # Run another iteration without additional feedback
+                        break
+                    
+                    elif feedback_choice == "4":
+                        # Switch to free-form command mode
+                        print("\nSwitching to free-form command mode. Type 'help' for available commands.")
+                        await self.start_interactive_mode()
+                        return
+                    
+                    else:
+                        print("Invalid choice. Please enter a number between 1 and 5.")
+                
+            except Exception as e:
+                print(f"Error during iteration: {e}")
+                print("Would you like to try again? (y/n)")
+                retry = input("> ")
+                if retry.lower() not in ["y", "yes"]:
+                    print("Exiting interactive mode.")
+                    return
     
     def _print_help(self) -> None:
         """Print help information."""
