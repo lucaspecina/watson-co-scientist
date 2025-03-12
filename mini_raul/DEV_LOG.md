@@ -2,6 +2,81 @@
 
 En este documento, tienes que ir haciendo un seguimiento del plan de desarrollo para cada iteracion y lo que se fue haciendo, resolviendo, problemas, comentarios, contexto, etc. Este documento de DEV deberia ser suficiente para volver en cualquier momento, sin memoria de lo hecho y entender todo lo que se fue haciendo, los pasos, iteraciones, pruebas, etc. SIEMPRE ACTUALIZALO!
 
+# Desarrollo de mini-RAUL
+
+## Iteración 1: Esqueleto del sistema multi-agente
+
+### Fecha: 2023-12-03
+
+### Objetivos:
+- Crear la estructura básica del proyecto
+- Implementar el framework multi-agente básico
+- Implementar la gestión de sesiones
+- Implementar los diferentes tipos de agentes
+- Crear una interfaz de línea de comandos básica
+
+### Implementación:
+
+1. **Estructura del proyecto**:
+   - Creada estructura modular con separación clara de responsabilidades
+   - Organización en módulos: core, agents, models, utils, data, cli
+
+2. **Core**:
+   - Implementada clase `Session` para gestionar el estado de la investigación
+   - Implementada clase `Coordinator` para orquestar los diferentes agentes
+   - Definidos estados de sesión (CREATED, PLANNING, GENERATING, etc.)
+
+3. **Agentes**:
+   - Implementada clase base `Agent` con interfaz común
+   - Implementados agentes específicos:
+     - `GenerationAgent`: Genera hipótesis (literatura, debate)
+     - `RankingAgent`: Compara y clasifica hipótesis en torneos
+     - `ReflectionAgent`: Analiza hipótesis (revisión completa, verificación)
+     - `EvolutionAgent`: Mejora hipótesis (mejora, simplificación, extensión)
+     - `MetaReviewAgent`: Sintetiza resultados de investigación
+
+4. **Modelos**:
+   - Implementada clase base `LLMClient` para interactuar con modelos de lenguaje
+   - Implementada clase `LLMProvider` como factory para diferentes proveedores
+   - Implementado cliente para Azure OpenAI
+
+5. **CLI**:
+   - Implementados comandos básicos para interactuar con el sistema
+   - Creada interfaz de línea de comandos con subcomandos para diferentes acciones
+
+### Decisiones de diseño:
+
+1. **Arquitectura modular**:
+   - Separación clara entre componentes para facilitar extensiones futuras
+   - Interfaces bien definidas entre módulos
+
+2. **Gestión de estado**:
+   - Estado persistente en archivos JSON
+   - Estructura de datos clara para sesiones e iteraciones
+
+3. **Comunicación entre agentes**:
+   - Coordinador central que orquesta el flujo de trabajo
+   - Contexto compartido para pasar información entre agentes
+
+4. **Interacción con LLMs**:
+   - Abstracción para diferentes proveedores de LLM
+   - Configuración flexible a través de variables de entorno
+
+### Limitaciones actuales:
+
+1. No hay herramientas externas (búsqueda web, ejecución de código)
+2. Sistema de memoria básico (archivos JSON)
+3. No hay paralelización real de agentes (excepto en la fase de generación)
+4. Interfaz de usuario limitada a línea de comandos
+
+### Próximos pasos:
+
+1. Probar el sistema con casos de uso reales
+2. Mejorar la gestión de errores y recuperación
+3. Optimizar prompts para los diferentes agentes
+4. Implementar clientes para otros proveedores de LLM (OpenAI, Ollama)
+5. Mejorar la documentación y ejemplos de uso
+
 # ORIGINAL Dev steps:
 
 ## Step 1: inicial → esqueleto del sistema
