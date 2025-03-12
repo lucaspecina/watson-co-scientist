@@ -62,6 +62,8 @@ class Hypothesis(BaseModel):
     description: str = Field(..., description="Full description of the hypothesis")
     summary: str = Field(..., description="Brief summary of the hypothesis")
     supporting_evidence: List[str] = Field(default_factory=list, description="Supporting evidence for the hypothesis")
+    experimental_approaches: List[str] = Field(default_factory=list, description="Potential experimental approaches to test this hypothesis")
+    predictions: List[str] = Field(default_factory=list, description="Specific predictions that would validate or invalidate the hypothesis")
     citations: List[Union[Citation, str]] = Field(default_factory=list, description="Citations supporting this hypothesis")
     creator: str = Field(..., description="Creator of the hypothesis (agent name or 'user')")
     status: HypothesisStatus = Field(default=HypothesisStatus.GENERATED)

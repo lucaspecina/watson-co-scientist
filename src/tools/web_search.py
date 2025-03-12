@@ -102,6 +102,12 @@ class WebSearchTool:
             "search": "search"
         }
         
+        # Limit query length to avoid 400 Bad Request errors (Tavily has a max limit)
+        # Truncate to 250 characters max, which should be safe for most queries
+        truncated_query = query[:250] if len(query) > 250 else query
+        if truncated_query != query:
+            print(f"Query too long. Truncated from {len(query)} to {len(truncated_query)} characters.")
+        
         # Use scientific search type if available
         tavily_search_type = search_types_map.get(search_type.lower(), "search")
         
@@ -114,9 +120,9 @@ class WebSearchTool:
                 
                 # Prepare search parameters
                 search_params = {
-                    "query": query,
+                    "query": truncated_query,
                     "search_depth": "advanced",
-                    "max_results": count,
+                    "max_results": min(count, 10),  # Limit max results to avoid errors
                     "include_answer": True,
                 }
                 
@@ -133,13 +139,18 @@ class WebSearchTool:
                     print("Falling back to synchronous TavilyClient...")
                     
                     # Fall back to sync client if async fails
-                    sync_client = TavilyClient(api_key=self.api_key)
-                    loop = asyncio.get_event_loop()
-                    data = await loop.run_in_executor(
-                        None, 
-                        lambda: sync_client.search(**search_params)
-                    )
-                    print(f"Tavily API search completed successfully with sync client")
+                    try:
+                        sync_client = TavilyClient(api_key=self.api_key)
+                        loop = asyncio.get_event_loop()
+                        data = await loop.run_in_executor(
+                            None, 
+                            lambda: sync_client.search(**search_params)
+                        )
+                        print(f"Tavily API search completed successfully with sync client")
+                    except Exception as inner_e:
+                        print(f"Error with synchronous TavilyClient: {str(inner_e)}")
+                        print("Falling back to direct HTTP request...")
+                        raise inner_e  # Re-raise to trigger the HTTP fallback
                 
             else:
                 print("Using direct HTTP request to Tavily API")
@@ -150,9 +161,9 @@ class WebSearchTool:
                 }
                 
                 payload = {
-                    "query": query,
+                    "query": truncated_query,
                     "search_depth": "advanced",
-                    "max_results": count,
+                    "max_results": min(count, 10),  # Limit max results to avoid errors
                     "include_answer": True,
                 }
                 
@@ -169,14 +180,21 @@ class WebSearchTool:
                 
                 # Use requests for simplicity (non-async but in executor)
                 def make_request():
-                    response = requests.post(
-                        "https://api.tavily.com/search", 
-                        headers=headers, 
-                        json=payload, 
-                        timeout=60.0
-                    )
-                    response.raise_for_status()
-                    return response.json()
+                    try:
+                        response = requests.post(
+                            "https://api.tavily.com/search", 
+                            headers=headers, 
+                            json=payload, 
+                            timeout=60.0
+                        )
+                        response.raise_for_status()
+                        return response.json()
+                    except requests.exceptions.HTTPError as e:
+                        if e.response.status_code == 400:
+                            print(f"Bad request error (400). Query may be too complex or malformed.")
+                            # Return an empty but valid response structure
+                            return {"results": [], "answer": None}
+                        raise
                 
                 # Run in executor to avoid blocking
                 loop = asyncio.get_event_loop()
@@ -188,6 +206,8 @@ class WebSearchTool:
             # Extract results from Tavily format
             results = []
             if "results" in data:
+                # Get the number of results that actually have content
+                results_with_content = 0
                 for item in data["results"]:
                     results.append({
                         "title": item.get("title", ""),
@@ -197,6 +217,8 @@ class WebSearchTool:
                         "publication_date": item.get("published_date", ""),
                         "domain": item.get("domain", "")
                     })
+                    if item.get("content"):
+                        results_with_content += 1
                     
             # Add the generated answer if available
             if "answer" in data and data["answer"]:
@@ -208,7 +230,8 @@ class WebSearchTool:
                     "is_generated": True
                 })
                 
-            logger.info(f"Performed Tavily {tavily_search_type} search for '{query}' and got {len(results)} results")
+            print(f"Retrieved {len(results)} results with content out of {len(data.get('results', []))} total results")
+            logger.info(f"Performed Tavily {tavily_search_type} search for '{truncated_query}' and got {len(results)} results")
             return results
             
         except Exception as e:

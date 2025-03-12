@@ -528,6 +528,7 @@ Luego, una vez que tenemos un conjunto de hipotesis con sus rankings y puntuacio
 El usuario da feedback de la misma manera que el input inicial, con texto y documentos o links. Aqui pueden haber tambien archivos con data experimental para tener en cuenta.
 
 El proceso vuelve a seguir de la misma manera, con otra iteracion y asi se van construyendo y mejorando las hipotesis y guardando la informacion pertinente. Los agentes de la iteracion 2 ya tienen que tener a disposicion la informacion recopilada, extraida y procesada de la iteracion 1, y la metadata correspondiente, por lo que puede ayudar a profundizar mas al buscar alternativas o fuentes complementarias para reforzas las hipotesis.
+Para cada iteracion, los agentes que generan las hipotesis no es que deben continuar con cada una de las hipotesis creadas anteriormente sino que tienen que tener en cuenta las mejores hipotesis de la iteracion anterior mas el feedback del usuario. Y ahi empiezan desde cero pero teniendo en cuenta esas cosas mas toda la info ya almacenada en la base de conocimiento.
 
 Cada session puede cerrarse cuando queramos y despues retomarla. Pueden existir multiples session al mismo tiempo, y por ahora no deberian compartir su base de conocimiento (quizas se pueda implementar posteriormente).
 Cada session tiene que tener distintos estados "state". Aqui se determina en que etapa del proyecto se esta, por ejemplo "waiting for user feedback".

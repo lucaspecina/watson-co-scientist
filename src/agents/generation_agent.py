@@ -69,11 +69,22 @@ class GenerationAgent(BaseAgent):
         
         For each hypothesis, provide:
         1. A clear title (one sentence)
-        2. A detailed description explaining the hypothesis (1-2 paragraphs)
-        3. A brief summary (1-2 sentences)
-        4. Key supporting evidence or rationale
+        2. A comprehensive description explaining the hypothesis (3-4 paragraphs) covering:
+           - The core mechanisms or processes involved
+           - The specific variables or factors that influence the phenomenon
+           - Potential boundary conditions or limitations
+           - Implications for the broader field
+        3. A concise summary (1-2 sentences)
+        4. Detailed supporting evidence (minimum 3-5 specific points)
+        5. Potential experimental approaches to test the hypothesis
+        6. Specific predictions that would validate or invalidate the hypothesis
         
-        Each hypothesis should be novel, grounded in scientific principles, and testable through experimentation.
+        Each hypothesis should be:
+        - Novel: Offering a perspective not explicitly stated in the literature
+        - Scientifically grounded: Based on established scientific principles
+        - Testable: Can be validated or falsified through specific experiments
+        - Relevant: Directly addresses the research goal
+        - Detailed: Providing sufficient depth for experts to understand and evaluate
         
         Format your response as a JSON array of objects with the following structure:
         
@@ -81,9 +92,11 @@ class GenerationAgent(BaseAgent):
         [
             {{
                 "title": "Hypothesis title",
-                "description": "Detailed description...",
+                "description": "Detailed multi-paragraph description covering all required elements...",
                 "summary": "Brief summary...",
-                "supporting_evidence": ["Evidence 1", "Evidence 2", ...]
+                "supporting_evidence": ["Detailed evidence point 1", "Detailed evidence point 2", ...],
+                "experimental_approaches": ["Approach 1", "Approach 2", ...],
+                "predictions": ["Prediction 1", "Prediction 2", ...]
             }},
             ...
         ]
@@ -115,6 +128,8 @@ class GenerationAgent(BaseAgent):
                     description=data["description"],
                     summary=data["summary"],
                     supporting_evidence=data["supporting_evidence"],
+                    experimental_approaches=data.get("experimental_approaches", []),
+                    predictions=data.get("predictions", []),
                     creator="generation",
                     source=HypothesisSource.SYSTEM,
                     metadata={"research_goal_id": research_goal.id}
@@ -188,12 +203,23 @@ class GenerationAgent(BaseAgent):
         
         For each hypothesis, provide:
         1. A clear title (one sentence)
-        2. A detailed description explaining the hypothesis (1-2 paragraphs)
-        3. A brief summary (1-2 sentences)
-        4. Key supporting evidence or rationale from the literature
-        5. References to the scientific literature (use the citation numbers from the Available Citations section)
+        2. A comprehensive description explaining the hypothesis (3-4 paragraphs) covering:
+           - The core mechanisms or processes involved
+           - The specific variables or factors that influence the phenomenon
+           - Potential boundary conditions or limitations
+           - Implications for the broader field
+        3. A concise summary (1-2 sentences)
+        4. Detailed supporting evidence from the literature (minimum 3-5 specific points)
+        5. Potential experimental approaches to test the hypothesis
+        6. Specific predictions that would validate or invalidate the hypothesis
+        7. References to the scientific literature (use the citation numbers from the Available Citations section)
         
-        Each hypothesis should be novel, grounded in the scientific literature, and testable through experimentation.
+        Each hypothesis should be:
+        - Novel: Offering a perspective not explicitly stated in the literature
+        - Scientifically grounded: Based on established scientific principles
+        - Testable: Can be validated or falsified through specific experiments
+        - Relevant: Directly addresses the research goal
+        - Detailed: Providing sufficient depth for experts to understand and evaluate
         
         Format your response as a JSON array of objects with the following structure:
         
@@ -201,9 +227,11 @@ class GenerationAgent(BaseAgent):
         [
             {{
                 "title": "Hypothesis title",
-                "description": "Detailed description...",
+                "description": "Detailed multi-paragraph description covering all required elements...",
                 "summary": "Brief summary...",
-                "supporting_evidence": ["Evidence 1", "Evidence 2", ...],
+                "supporting_evidence": ["Detailed evidence point 1", "Detailed evidence point 2", ...],
+                "experimental_approaches": ["Approach 1", "Approach 2", ...],
+                "predictions": ["Prediction 1", "Prediction 2", ...],
                 "citation_ids": [1, 2, 3]
             }},
             ...
@@ -263,6 +291,8 @@ class GenerationAgent(BaseAgent):
                     description=data["description"],
                     summary=data["summary"],
                     supporting_evidence=data["supporting_evidence"],
+                    experimental_approaches=data.get("experimental_approaches", []),
+                    predictions=data.get("predictions", []),
                     citations=hypothesis_citations,  # Add the citations
                     creator="generation_with_literature",
                     source=HypothesisSource.SYSTEM,
@@ -351,10 +381,12 @@ class GenerationAgent(BaseAgent):
         
         After the debate, summarize the final hypothesis with:
         1. A clear title (one sentence)
-        2. A detailed description explaining the hypothesis (1-2 paragraphs)
+        2. A detailed description explaining the hypothesis (3-4 paragraphs)
         3. A brief summary (1-2 sentences)
-        4. Key supporting evidence or rationale
-        5. References to the scientific literature (use the citation numbers if provided)
+        4. Key supporting evidence or rationale (minimum 3-5 points)
+        5. Potential experimental approaches to test the hypothesis
+        6. Specific predictions that would validate or invalidate the hypothesis
+        7. References to the scientific literature (use the citation numbers if provided)
         
         Format the final output as a JSON object with the following structure:
         
@@ -364,6 +396,8 @@ class GenerationAgent(BaseAgent):
             "description": "Detailed description...",
             "summary": "Brief summary...",
             "supporting_evidence": ["Evidence 1", "Evidence 2", ...],
+            "experimental_approaches": ["Approach 1", "Approach 2", ...],
+            "predictions": ["Prediction 1", "Prediction 2", ...],
             "citation_ids": [1, 2, 3],
             "debate_transcript": "Full transcript of the debate..."
         }}
@@ -416,11 +450,13 @@ class GenerationAgent(BaseAgent):
                 title=data["title"],
                 description=data["description"],
                 summary=data["summary"],
-                supporting_evidence=data["supporting_evidence"],
+                supporting_evidence=data.get("supporting_evidence", []),
+                experimental_approaches=data.get("experimental_approaches", []),
+                predictions=data.get("predictions", []),
                 citations=hypothesis_citations,
                 creator="generation_debate",
                 source=HypothesisSource.SYSTEM,
-                literature_grounded=with_literature and len(hypothesis_citations) > 0,
+                literature_grounded=with_literature,
                 metadata={
                     "research_goal_id": research_goal.id,
                     "debate_transcript": data.get("debate_transcript", "")
