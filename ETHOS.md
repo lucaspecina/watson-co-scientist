@@ -1,7 +1,7 @@
 
-Below is the technical definition of the expected system (based on the paper itself):
+# Technical definition of the expected system (based on the paper itself):
 
-Introduction:
+## Introduction:
 
 The co-scientist is designed to act as a helpful assistant and collaborator to scientists and to help accelerate
 the scientific discovery process. The system is a compound, multi-agent AI system [11] building on Gemini
@@ -54,7 +54,12 @@ treatment targets grounded in preclinical evidence for liver fibrosis, and propo
 gene transfer in bacterial evolution and antimicrobial resistance. These discoveries from the AI co-scientist
 have been validated in wet-lab settings and are detailed in separate, co-timed technical reports.
 
-Introducing the AI co-scientist
+## The AI co-scientist system design and experimental validation summary. 
+(a) Here, we illustrate the
+different components of the the AI co-scientist multi-agent system, and its interaction paradigm with scientists. Given a research goal in natural language, the co-scientist generates novel research hypotheses and proposals. The system employs specialized agents — Generation, Reflection, Ranking, Evolution, Proximity (which evaluates relatedness), Meta-review (which provides high level analysis) — to continuously generate, debate, and evolve research hypotheses within a tournament framework. Feedback from the tournament enables iterative improvement, creating a self-improving loop towards novel and high-quality outputs. The co-scientist leverages tools, including web search and specialized AI models to improve the grounding and quality of generated research hypotheses. Scientists can converse with the co-scientist in natural language to specify research goals, incorporate constraints, provide feedback and suggest new directions for explorations via the designated user interface. (b) We perform end-to-end validation of the co-scientist generated hypotheses in three important topics of biomedicine with varied complexity— suggesting novel drug repurposing candidates for acute myeloid leukemia (AML) (upper panel), discovering novel epigenetic targets for liver fibrosis treatment (middle panel), and recapitulating the discovery of novel mechanism of gene transfer evolution in bacteria key to anti-microbial resistance (lower panel). The co-scientist’s hypotheses for these three settings are externally, independently validated by in vitro laboratory experiments and detailed in separate preprints co-timed with this work. In the figure, blue denotes expert scientist inputs while red denotes the co-scientist agents or outputs.
+
+
+## Introducing the AI co-scientist
 This section describes the technical details, agents, and framework comprising the co-scientist system. The
 co-scientist employs a multi-agent architecture built upon Gemini 2.0, integrated within an asynchronous task
 execution framework. This framework allows for flexible scaling of test-time compute resources, facilitating
@@ -79,7 +84,8 @@ mechanisms of Amyotrophic Lateral Sclerosis (ALS) to illustrate the various comp
 system. While this example has been reviewed by domain experts, it remains illustrative and may contain
 errors. Importantly, this example does not aim to suggest potential therapeutic avenues for ALS and should
 be interpreted with utmost caution. All the examples are listed in the Appendix Section A.3.
-3.1 The AI co-scientist system overview
+
+### 3.1 The AI co-scientist system overview
 At a high level, the co-scientist system comprises four key components:
 • Natural language interface. Scientists interact with and supervise the system primarily through
 natural language. This allows them to not only define the initial research goal but also refine it at any
@@ -91,9 +97,7 @@ framework. A dedicated Supervisor agent manages the worker task queue, assigns s
 these processes, and allocates resources. This design enables the system to flexibly and effectively utilize
 computational resources and iteratively improve its scientific reasoning capabilities.
 • Specialized agents. Following inductive biases and scientific priors derived from the scientific method,
-the process of scientific reasoning and hypothesis generation is broken down into sub-tasks. Individual, 
-
-specialized agents, each equipped with customized instruction prompts, are designed to execute these
+the process of scientific reasoning and hypothesis generation is broken down into sub-tasks. Individual, specialized agents, each equipped with customized instruction prompts, are designed to execute these
 sub-tasks. These agents operate as workers coordinated by the Supervisor agent.
 • Context memory. In order to enable iterative computation and scientific reasoning over long time
 horizons, the co-scientist uses a persistent context memory to store and retrieve states of the agents and
@@ -101,7 +105,8 @@ the system during the course of the computation.
 The Gemini 2.0 model is the foundational LLM underpinning all agents in the co-scientist system. The specific
 co-scientist design was arrived at with iterative developments and is reflective of the current capabilities of
 the underlying LLMs.
-3.2 From research goal to research plan configuration
+
+### 3.2 From research goal to research plan configuration
 The research goal, specified by the scientist, serves as the entry point to the co-scientist system. Leveraging the
 multimodal and long context capabilities of Gemini 2.0 models, the co-scientist efficiently processes research
 goals of varying complexity, from simple statements to extensive documents spanning tens of thousands of
@@ -124,7 +129,8 @@ progress toward the specified research goal. These statistics inform decisions r
 and the determination of whether a terminal state for the overall computation has been reached. The state is
 periodically written to the associated context memory of the system and leveraged as feedback in subsequent
 rounds of computation. It also enables easy restarts in-case of any failure in the system components.
-3.3 The specialized agents underpinning the AI co-scientist
+
+### 3.3 The specialized agents underpinning the AI co-scientist
 At the core of the co-scientist system are a coalition of specialized agents, each orchestrated by the Supervisor
 agent. These agents are designed to emulate the scientific reasoning process, enabling them to generate novel
 hypotheses and research plans. They are also equipped to interact with external tools, such as web search
@@ -140,9 +146,7 @@ evaluates the potential of each hypothesis to provide an improved explanation fo
 observations (identified via literature search and review), particularly those that may be under explained.
 • Ranking agent. An important abstraction in the co-scientist system is the notion of a tournament
 where different research proposals are evaluated and ranked enabling iterative improvements. The
-Ranking agent employs and orchestrates an Elo-based tournament [64] to assess and prioritize the 
-
-generated hypotheses at any given time. This involves pairwise comparisons, facilitated by simulated
+Ranking agent employs and orchestrates an Elo-based tournament [64] to assess and prioritize the generated hypotheses at any given time. This involves pairwise comparisons, facilitated by simulated
 scientific debates, which allow for a nuanced evaluation of the relative merits of each proposal.
 • Proximity agent. This agent asynchronously computes a proximity graph for generated hypotheses,
 enabling clustering of similar ideas, de-duplication, and efficient exploration of the hypothesis landscape.
@@ -170,9 +174,7 @@ Evolution agent). Based on these statistics, the Supervisor agent then orchestra
 operations, i.e., generating new hypotheses, reviews, tournaments, and improvements to existing hypotheses,
 by strategically weighting and sampling the specialized agents for execution via the worker processes.
 Importantly, the Meta-review agent enables feedback propagation and learning without back-propagation
-techniques (e.g., fine-tuning or reinforcement learning) [65]. The Meta-review agent generates feedback 
-
-applicable to all agents, which is simply appended to their prompts in the next iteration—a capability
+techniques (e.g., fine-tuning or reinforcement learning) [65]. The Meta-review agent generates feedback applicable to all agents, which is simply appended to their prompts in the next iteration—a capability
 facilitated by the long-context search and reasoning capabilities of the underlying Gemini 2.0 models. Through
 this feedback loop, the co-scientist continuously learns and improves in subsequent iterations with more
 compute scaling.
@@ -180,7 +182,8 @@ Finally, while our work leverages Gemini 2.0, the co-scientist framework is mode
 other similar models or combinations thereof. Future LLM improvements will likely enhance the co-scientist’s
 capabilities. The multi-agent architecture of the co-scientist is depicted and summarized in Figure 2.
 We now describe the mechanisms of action of the specialized agents in more detail.
-3.3.1 Generation agent
+
+#### 3.3.1 Generation agent
 The co-scientist Generation agent employs a diverse array of techniques and tools to generate novel hypotheses,
 such as the following:
 • Literature exploration via web search. The agent iteratively searches the web, retrieves and reads
@@ -202,7 +205,8 @@ An example hypothesis and research proposal output from the Generation agent is 
 Figure A.10 for the aforementioned research goal regarding explaining a basic mechanism related to ALS. The
 Generation agent also summarizes and categorizes each generated hypothesis, allowing scientists to quickly
 grasp the core ideas.
-3.3.2 Reflection agent
+
+#### 3.3.2 Reflection agent
 Reviews are integral to the co-scientist’s effectiveness in generating novel proposals. The Reflection agent
 searches relevant prior work (via web search or a dedicated scientist-provided repository), assesses existing
 experimental evidence for or against a given hypothesis, and rigorously verifies the novelty, correctness, and
@@ -217,9 +221,7 @@ or otherwise unsuitable hypotheses.
 • Full review. If a hypothesis passes the initial review, the Reflection agent performs a full review,
 leveraging external tools and web searches to identify relevant articles for improved reasoning and
 grounding. This review evaluates the hypothesis’s correctness, quality, and novelty similar to the initial
-review but with full literature search. For correctness and quality, the agent scrutinizes underlying 
-
-assumptions and reasoning. For novelty, it summarizes known aspects of the hypothesis and then
+review but with full literature search. For correctness and quality, the agent scrutinizes underlying assumptions and reasoning. For novelty, it summarizes known aspects of the hypothesis and then
 judges their novelty based on existing literature. An example full novelty review is shown in Appendix
 Figure A.11, and an example of review critiques is in Appendix Figure A.12. A complete full review
 example is shown in Appendix Figure A.13.
@@ -256,7 +258,8 @@ its reviews accordingly.
 Additionally, the co-scientist can incorporate reviews from expert scientists to guide ranking and improvements
 (further discussed in Section 3.4). We aim to have the Reflection agent’s comprehensive set of reviews cover
 the common methods scientists employ when critiquing and refining research hypotheses and proposals.
-3.3.3 Ranking agent
+
+#### 3.3.3 Ranking agent
 The AI co-scientist explores numerous hypotheses and research proposals towards a research goal, necessitating
 a ranking mechanism to prioritize computational resources toward the most promising candidates. This task
 is performed by the Ranking agent. The agent uses an Elo-based tournament [64] to automatically evaluate
@@ -277,13 +280,15 @@ The Ranking agent prioritizes tournament matches as follows: (1) hypotheses are 
 with similar ones (based on the Proximity agent’s graph, described in the next section); (2) newer and
 top-ranking hypotheses are prioritized for participation in tournament matches. Successful hypotheses quickly
 achieve favorable rankings and this informs the tournament state for subsequent iterations.
-3.3.4 Proximity agent
+
+#### 3.3.4 Proximity agent
 The Proximity agent calculates the similarity between research hypotheses and proposals, and builds a
 proximity graph, taking into account the specific research goal. Although it doesn’t directly participate in
 hypothesis generation, the Proximity agent assists the Ranking agent in organizing tournament matches and
 showcasing a diverse range of ideas related to the research goal. This allows scientists to quickly explore areas
 of interest and easily identify related concepts.
-3.3.5 Evolution agent
+
+#### 3.3.5 Evolution agent
 The Evolution agent continuously refines and improves existing hypotheses and proposals using several
 approaches including:
 • Enhancement through grounding. Here the agent attempts to improve hypotheses by identifying
@@ -303,7 +308,8 @@ The Evolution agent generates new hypotheses; it doesn’t modify or replace exi
 protects the quality of top-ranked hypotheses from flawed improvements, as each new hypothesis must also
 compete in the tournament. The evolution of research hypotheses and proposals also allows the co-scientist to
 iteratively combine different improvement techniques and gradually improve the quality of the results.
-3.3.6 Meta-review agent
+
+#### 3.3.6 Meta-review agent
 The Meta-review agent plays a crucial role in the co-scientist’s feedback loop, enabling self-improvement in
 scientific reasoning. This agent operates on the tournament state and summarizes common patterns identified
 in reviews and scientific debates in the tournament matches into a meta-review critique.
@@ -316,9 +322,7 @@ crucial factor. Hypothesis and research proposal generation is also enhanced by 
 of recurring issues. While the Generation agent uses this feedback selectively to avoid over fitting to these
 review critiques, it helps prevent the recurrence of common issues.
 Appendix Figure A.8 provides an example prompt for the meta-review. In Appendix Figure A.18-A.19, we
-showcase an example of the summarized meta-review critique generated for the reviews of the previously 
-
-introduced ALS mechanism hypotheses.
+showcase an example of the summarized meta-review critique generated for the reviews of the previously introduced ALS mechanism hypotheses.
 Research overview generation. The Meta-review agent periodically synthesizes top-ranked hypotheses into
 a research overview, providing a roadmap for future research. This overview outlines potential research areas
 and directions relevant to the research goal, justifying their importance and suggesting specific experiments
@@ -335,7 +339,8 @@ domain experts for research hypotheses and proposal review, including the reason
 These potential contacts are summarized in the research overview, providing researchers with additional
 perspectives and potential avenues for collaborations. An example research contact (with the researcher name
 redacted) is shown in Appendix Figure A.22.
-3.4 Expert-in-the-loop interactions with the co-scientist
+
+### 3.4 Expert-in-the-loop interactions with the co-scientist
 The AI co-scientist empowers scientists to actively guide the system through an expert-in-the-loop design
 (Figure 2). Scientists can interact with the system in several ways:
 • Refine the initial research goal in light of the generated hypotheses and research overview.
@@ -346,7 +351,8 @@ alongside and can be combined with system-generated hypotheses and proposals.
 • Direct the co-scientist to follow up on specific research directions (for example restricted to a smaller
 collection of prior publications). When this research is referenced in the research goal, the co-scientist
 can prioritize generation methods that can access and synthesize it.
-3.5 Tool use in AI co-scientist
+
+### 3.5 Tool use in AI co-scientist
 The co-scientist leverages various tools during the generation, review, and improvement of hypotheses and
 research proposals. Web search and retrieval are primary tools, important for grounded, up-to-date hypotheses.
 For research goals that explore a constrained space of possibilities (e.g., all known cell receptors of a specific
@@ -356,18 +362,273 @@ of publications specified by the scientist.
 Finally, the system can utilize and incorporate feedback from specialized AI models like AlphaFold. We
 demonstrate this qualitatively with a protein design example in the Appendix Section A.6.
 
-Figure 2 | The AI co-scientist multi-agent architecture design. The co-scientist accepts a natural language research goal
-from the user and parses this into a research plan configuration. This plan is then dispatched to the Supervisor agent which
-evaluates this plan to assigns weights and resources to each specialized agent and subsequently queues them as worker processes
-in a task queue according to these weights. The worker processes execute the queue of agent actions, and the system ultimately
-aggregates all information to formulate a research overview with detailed hypotheses and proposals for the scientist. The red
-boxes in the “The AI co-scientist specialized agents” section denote individual agents each with their own unique logic and role.
+## The AI co-scientist multi-agent architecture design. The co-scientist accepts a natural language research goal
+from the user and parses this into a research plan configuration. This plan is then dispatched to the Supervisor agent which evaluates this plan to assigns weights and resources to each specialized agent and subsequently queues them as worker processes in a task queue according to these weights. The worker processes execute the queue of agent actions, and the system ultimately aggregates all information to formulate a research overview with detailed hypotheses and proposals for the scientist. The red boxes in the “The AI co-scientist specialized agents” section denote individual agents each with their own unique logic and role.
 The blue boxes indicate the scientist-in-the-loop inputs and feedback. The dark gray arrows represent the information flow
 through the co-scientist system, while the red arrows represent the information feedback loop between the specialized agents.
 
 
+## Example: The AI co-scientist uncovers novel therapeutic targets for liver fibrosis
+
+Liver fibrosis is a severe disease that can progress to liver failure and hepatocellular carcinoma, which has
+few treatment options due to the limitations of available animal and in vitro models. However, a recently
+developed method for producing human hepatic organoids coupled with a live cell imaging system for liver
+fibrosis provides a new avenue for identification of new treatments for liver fibrosis [82–84]. The AI co-scientist
+was asked to produce experimentally testable hypotheses concerning the role of epigenetic alterations in liver
+fibrosis (“A Novel Hypothesis Regarding Myofibroblast Generation in Liver Fibrosis”); and to identify drugs
+targeting epigenetic modifiers that could be used for treatment of liver fibrosis.
+
+The experts selected three (from fifteen) top-ranked co-scientist generated research hypotheses with a
+comprehensive research proposal (i.e., experimental design, evaluation methodology, and anticipated results)
+for exploring the role of epigenetic modifications in liver fibrosis. The co-scientist identified three novel
+epigenetic modifiers with supporting preclinical evidence that could be targeted by existing agents and provide
+new treatments for liver fibrosis. Drugs targeting two of the three epigenetic modifiers exhibited significant
+anti-fibrotic activity in hepatic organoids without causing cellular toxicity (Figure 12). Since one of them is
+an FDA-approved drug for another indication, this creates an opportunity to re-purpose a drug for treatment
+of liver fibrosis. These results will be detailed in an upcoming technical report.
 
 
+
+## A.2 Prompts for the specialized agents in the AI co-scientist system
+
+### A.2.1 Prompts for the Generation agent
+
+#### Prompt for hypothesis generation after literature review
+You are an expert tasked with formulating a novel and robust hypothesis to address
+the following objective.
+Describe the proposed hypothesis in detail, including specific entities, mechanisms,
+and anticipated outcomes.
+This description is intended for an audience of domain experts.
+You have conducted a thorough review of relevant literature and developed a logical framework
+for addressing the objective. The articles consulted, along with your analytical reasoning,
+are provided below.
+Goal: {goal}
+Criteria for a strong hypothesis:
+{preferences}
+Existing hypothesis (if applicable):
+{source_hypothesis}
+{instructions}
+Literature review and analytical rationale (chronologically ordered, beginning
+with the most recent analysis):
+{articles_with_reasoning}
+Proposed hypothesis (detailed description for domain experts):
+
+
+#### Prompt for hypothesis generation after scientific debate
+You are an expert participating in a collaborative discourse concerning the generation
+of a {idea_attributes} hypothesis. You will engage in a simulated discussion with other experts.
+The overarching objective of this discourse is to collaboratively develop a novel
+and robust {idea_attributes} hypothesis.
+Goal: {goal}
+Criteria for a high-quality hypothesis:
+{preferences}
+Instructions:
+{instructions}
+Review Overview:
+{reviews_overview}
+Procedure:
+Initial contribution (if initiating the discussion):
+Propose three distinct {idea_attributes} hypotheses.
+Subsequent contributions (continuing the discussion):
+* Pose clarifying questions if ambiguities or uncertainties arise.
+* Critically evaluate the hypotheses proposed thus far, addressing the following aspects:
+- Adherence to {idea_attributes} criteria.
+- Utility and practicality.
+- Level of detail and specificity.
+* Identify any weaknesses or potential limitations.
+* Propose concrete improvements and refinements to address identified weaknesses.
+* Conclude your response with a refined iteration of the hypothesis.
+General guidelines:
+* Exhibit boldness and creativity in your contributions.
+* Maintain a helpful and collaborative approach.
+* Prioritize the generation of a high-quality {idea_attributes} hypothesis.
+Termination condition:
+When sufficient discussion has transpired (typically 3-5 conversational turns,
+with a maximum of 10 turns) and all relevant questions and points have been
+thoroughly addressed and clarified, conclude the process by writing "HYPOTHESIS"
+(in all capital letters) followed by a concise and self-contained exposition of the finalized idea.
+#BEGIN TRANSCRIPT#
+{transcript}
+#END TRANSCRIPT#
+Your Turn:
+
+
+### Prompt for the Reflection agent
+
+#### Prompt for generating observations which can be explained by the hypothesis
+You are an expert in scientific hypothesis evaluation. Your task is to analyze the
+relationship between a provided hypothesis and observations from a scientific article.
+Specifically, determine if the hypothesis provides a novel causal explanation
+for the observations, or if they contradict it.
+Instructions:
+1. Observation extraction: list relevant observations from the article.
+2. Causal analysis (individual): for each observation:
+a. State if its cause is already established.
+b. Assess if the hypothesis could be a causal factor (hypothesis => observation).
+c. Start with: "would we see this observation if the hypothesis was true:".
+d. Explain if it’s a novel explanation. If not, or if a better explanation exists,
+state: "not a missing piece."
+3. Causal analysis (summary): determine if the hypothesis offers a novel explanation
+for a subset of observations. Include reasoning. Start with: "would we see some of
+the observations if the hypothesis was true:".
+4. Disproof analysis: determine if any observations contradict the hypothesis.
+Start with: "does some observations disprove the hypothesis:".
+5. Conclusion: state: "hypothesis: <already explained, other explanations more likely,
+missing piece, neutral, or disproved>".
+Scoring:
+* Already explained: hypothesis consistent, but causes are known. No novel explanation.
+* Other explanations more likely: hypothesis *could* explain, but better explanations exist.
+* Missing piece: hypothesis offers a novel, plausible explanation.
+* Neutral: hypothesis neither explains nor is contradicted.
+* Disproved: observations contradict the hypothesis.
+Important: if observations are expected regardless of the hypothesis, and don’t disprove it,
+it’s neutral.
+Article:
+{article}
+Hypothesis:
+{hypothesis}
+Response {provide reasoning. end with: "hypothesis: <already explained, other explanations
+more likely, missing piece, neutral, or disproved>".)
+
+
+### Prompts for the Ranking agent
+
+#### Prompt for hypothesis comparison during tournament
+You are an expert evaluator tasked with comparing two hypotheses.
+Evaluate the two provided hypotheses (hypothesis 1 and hypothesis 2) and determine which one
+is superior based on the specified {idea_attributes}.
+Provide a concise rationale for your selection, concluding with the phrase "better idea: <1 or 2>".
+Goal: {goal}
+Evaluation criteria:
+{preferences}
+Considerations:
+{notes}
+Each hypothesis includes an independent review. These reviews may contain numerical scores.
+Disregard these scores in your comparative analysis, as they may not be directly comparable across reviews.
+Hypothesis 1:
+{hypothesis 1}
+Hypothesis 2:
+{hypothesis 2}
+Review of hypothesis 1:
+{review 1}
+Review of hypothesis 2:
+{review 2}
+Reasoning and conclusion (end with "better hypothesis: <1 or 2>"):
+
+
+#### Prompt for hypothesis comparison via simulated scientific debate during tournament
+You are an expert in comparative analysis, simulating a panel of domain experts
+engaged in a structured discussion to evaluate two competing hypotheses.
+The objective is to rigorously determine which hypothesis is superior based on
+a predefined set of attributes and criteria.
+The experts possess no pre-existing biases toward either hypothesis and are solely
+focused on identifying the optimal choice, given that only one can be implemented.
+Goal: {goal}
+Criteria for hypothesis superiority:
+{preferences}
+Hypothesis 1:
+{hypothesis 1}
+Hypothesis 2:
+{hypothesis 2}
+Initial review of hypothesis 1:
+{review1}
+Initial review of hypothesis 2:
+{review 2}
+Debate procedure:
+The discussion will unfold in a series of turns, typically ranging from 3 to 5, with a maximum of 10.
+Turn 1: begin with a concise summary of both hypotheses and their respective initial reviews.
+Subsequent turns:
+* Pose clarifying questions to address any ambiguities or uncertainties.
+* Critically evaluate each hypothesis in relation to the stated Goal and Criteria.
+This evaluation should consider aspects such as:
+- Potential for correctness/validity.
+- Utility and practical applicability.
+- Sufficiency of detail and specificity.
+- Novelty and originality.
+- Desirability for implementation.
+* Identify and articulate any weaknesses, limitations, or potential flaws in either hypothesis.
+Additional notes:
+{notes}
+Termination and judgment:
+Once the discussion has reached a point of sufficient depth (typically 3-5 turns, up to 10 turns)
+and all relevant questions and concerns have been thoroughly addressed, provide a conclusive judgment.
+This judgment should succinctly state the rationale for the selection.
+Then, indicate the superior hypothesis by writing the phrase "better idea: ",
+followed by "1" (for hypothesis 1) or "2" (for hypothesis 2).
+
+
+### Prompts for the Evolution agent
+
+#### Prompt for hypothesis feasibility improvement
+You are an expert in scientific research and technological feasibility analysis.
+Your task is to refine the provided conceptual idea, enhancing its practical implementability
+by leveraging contemporary technological capabilities. Ensure the revised concept retains
+its novelty, logical coherence, and specific articulation.
+Goal: {goal}
+Guidelines:
+1. Begin with an introductory overview of the relevant scientific domain.
+2. Provide a concise synopsis of recent pertinent research findings and related investigations,
+highlighting successful methodologies and established precedents.
+3. Articulate a reasoned argument for how current technological advancements can facilitate
+the realization of the proposed concept.
+4. CORE CONTRIBUTION: Develop a detailed, innovative, and technologically viable alternative
+to achieve the objective, emphasizing simplicity and practicality.
+Evaluation Criteria:
+{preferences}
+Original Conceptualization:
+{hypothesis}
+Response:
+
+
+#### Prompt for hypothesis generation through out-of-the-box thinking
+You are an expert researcher tasked with generating a novel, singular hypothesis
+inspired by analogous elements from provided concepts.
+Goal: {goal}
+Instructions:
+1. Provide a concise introduction to the relevant scientific domain.
+2. Summarize recent findings and pertinent research, highlighting successful approaches.
+3. Identify promising avenues for exploration that may yield innovative hypotheses.
+4. CORE HYPOTHESIS: Develop a detailed, original, and specific single hypothesis
+for achieving the stated goal, leveraging analogous principles from the provided
+ideas. This should not be a mere aggregation of existing methods or entities. Think out-of-the-box.
+Criteria for a robust hypothesis:
+{preferences}
+Inspiration may be drawn from the following concepts (utilize analogy and inspiration,
+not direct replication):
+{hypotheses}
+Response:
+
+
+### Prompt for the Meta-review agent
+
+#### Prompt for meta-review generation
+You are an expert in scientific research and meta-analysis.
+Synthesize a comprehensive meta-review of provided reviews
+pertaining to the following research goal:
+Goal: {goal}
+Preferences:
+{preferences}
+Additional instructions:
+{instructions}
+Provided reviews for meta-analysis:
+{reviews}
+Instructions:
+* Generate a structured meta-analysis report of the provided reviews.
+* Focus on identifying recurring critique points and common issues raised by reviewers.
+* The generated meta-analysis should provide actionable insights for researchers
+developing future proposals.
+* Refrain from evaluating individual proposals or reviews;
+focus on producing a synthesized meta-analysis.
+Response:
+
+
+## Other resources
+
+In mini_raul/example_desired_system_outputs.md there are system output examples for the system's final development state. 
+
+The system will be developed in an interative way, starting with the basics, so we don't expect the system to produce this quality answers from the beginning. 
+
+This is a goal and can be helpful to compare and build the system in such a way that replicates something similar to these examples.
 
 
 
@@ -381,136 +642,7 @@ through the co-scientist system, while the red arrows represent the information 
 
 
 
-
-Below is a possible architecture for the solution (it's just an estimate)
-
-Diseño de un Sistema de Investigación Automatizada
-
-Interfaz de Usuario e Interacción Iterativa
-
-El sistema contará con una interfaz interactiva (por ejemplo, un entorno tipo chat web o aplicación de escritorio) donde el asistente de investigación presenta actualizaciones periódicas al usuario. Tras recolectar y analizar información, el sistema entregará resúmenes de hallazgos, hipótesis preliminares y datos relevantes de forma incremental. Cada iteración de resultados incluye un resumen claro de lo encontrado hasta el momento, citas clave y posibles direcciones a seguir.
-
-El usuario permanece en el ciclo de investigación, pudiendo proporcionar retroalimentación después de cada actualización. Por ejemplo, el usuario puede corregir el rumbo (“estos resultados no son relevantes para X, mejor busca Y”) o pedir mayor profundidad en cierto aspecto. Esta colaboración humano-máquina mejora los resultados . Es importante destacar que el usuario no modifica directamente la base de conocimiento interna (no edita la base de datos), sino que guía al sistema con instrucciones. El asistente interpretará este feedback y ajustará sus búsquedas, filtrado de información o hipótesis según las indicaciones del usuario, sin alterar manualmente los datos ya almacenados. Esto garantiza control sobre la dirección de la investigación manteniendo la integridad de la memoria interna.
-
-Para lograr una interacción fluida:
-
-- El sistema presentará la información en lenguaje natural y, de ser útil, en formato de listas o tablas breves, facilitando la comprensión.
-- Cada actualización periódica termina con una pregunta o opción para el usuario (por ejemplo: “¿Desea profundizar en algún aspecto o corregir el rumbo?”), invitando a la retroalimentación.
-- El intervalo de actualización puede ser configurable o desencadenado por eventos (p.ej., después de analizar cierto número de documentos o descubrir algo notable).
-- La interfaz también podrá mostrar visualizaciones de datos o gráficos generados durante la investigación, integrándolos como imágenes en el flujo conversacional cuando el sistema ejecute análisis cuantitativos o de datos. Esto permite una comunicación más rica, por ejemplo mostrando una gráfica de resultados estadísticos relevantes que el asistente haya calculado.
-
-Recuperación de Información desde Múltiples Fuentes
-
-El sistema dispone de un módulo de búsqueda y recopilación de información capaz de acceder a diversas fuentes: internet abierto, repositorios académicos y documentos locales o subidos. Este módulo integrará APIs de búsqueda avanzadas para cubrir distintos dominios:
-
-- Búsqueda web general: Se utilizarán APIs de motores de búsqueda (por ejemplo, Bing Web Search API o Google Custom Search API) para obtener información general actualizada de la web. Esto permite encontrar noticias, blogs, sitios oficiales y datos en internet en respuesta a la consulta del usuario.
-- Literatura científica: Para papers y artículos académicos, el sistema usará APIs especializadas como Semantic Scholar API, CrossRef API o consultas a Google Scholar (posiblemente a través de un servicio como SerpAPI ). Estas APIs permiten buscar por título, palabras clave, autores, etc., y obtener metadatos o enlaces a los artículos. Por ejemplo, se podría enviar una consulta a Semantic Scholar o arXiv API para encontrar los trabajos más relevantes sobre el tema dado.
-- Recuperación de documentos: Una vez obtenidos los enlaces o referencias, el sistema descarga el contenido. Para artículos académicos, esto implicará descargar el PDF del paper (por ejemplo, desde arXiv, Springer o fuentes open access) u obtener el texto HTML. Para resultados web, podría implicar hacer scraping controlado de páginas si la API de búsqueda no provee todo el contenido.
-- OCR para documentos escaneados: Si algunos documentos están en formato imagen o PDF escaneado (por ejemplo, un paper antiguo escaneado o infografías), el sistema aplica OCR (Optical Character Recognition) para extraer el texto. Se pueden usar librerías OCR como Tesseract (open source) o APIs como Google Cloud Vision OCR, según disponibilidad. El OCR convierte las imágenes de texto en texto plano que el sistema pueda procesar.
-- APIs adicionales: El diseño prevé la facilidad de integrar nuevas fuentes. Por ejemplo, una API de bases de datos específicas (PubMed para artículos médicos, IEEE Xplore para papers de ingeniería, etc.) puede incorporarse cuando la investigación lo requiera, a través de conectores modulares.
-
-Estrategia de búsqueda: El asistente formulará internamente consultas basadas en la pregunta del usuario y en hipótesis emergentes. Inicialmente usará palabras clave directas de la consulta. Con el progreso, refinará las búsquedas (incluso usando lenguaje natural) según nuevos términos descubiertos. Por ejemplo, si tras leer un par de papers identifica una sub-temática importante, hará búsquedas más específicas sobre esa sub-temática. Este módulo de búsqueda trabajará en conjunto con el motor LLM para generar consultas óptimas (el LLM puede sugerir keywords relevantes) y con la memoria para evitar duplicar búsquedas ya realizadas.
-
-Almacenamiento de Conocimiento y Memoria a Largo Plazo
-
-Para que el sistema “recuerde” información a lo largo de la sesión, se implementará un almacenamiento de memoria a largo plazo robusto. Dado el alto volumen y variedad de datos (texto de papers, páginas web, notas del usuario, resultados intermedios), la arquitectura usará una combinación de almacenamiento vectorial y estructurado, aprovechando lo mejor de cada enfoque:
-
-- Base de datos vectorial: Se empleará una base de datos de embeddings (por ejemplo FAISS para local o Pinecone como servicio gestionado) para almacenar representaciones semánticas de fragmentos de texto. Cada documento recuperado (paper, artículo web, etc.) se dividirá en trozos manejables (párrafos o secciones), y el sistema generará un embedding vectorial para cada trozo usando un modelo de lenguaje (p.ej., un modelo tipo SBERT o el mismo LLM). Estos embeddings se indexan en la base vectorial junto con metadatos (fuente, título, tags de tema). Esto permite más adelante realizar búsquedas semánticas en la memoria: el asistente puede preguntar a la base vectorial “¿qué fragmentos de lo que he leído se relacionan con X tema?” y recuperar pasajes relevantes incluso si no contienen exactamente las mismas palabras, aprovechando la similitud conceptual. Las bases vectoriales son muy eficientes para este tipo de búsqueda difusa y escalan bien con grandes volúmenes de texto . Este almacenamiento vectorial sirve como memoria episódica de la sesión, acumulando todo el conocimiento textual reunido.
-- Base de conocimiento estructurada / grafo de conocimiento (opcional híbrido): Para complementar la memoria vectorial, el sistema puede construir dinámicamente un grafo de conocimiento a partir de la información recopilada . A medida que el LLM extrae hechos clave y relaciones (por ejemplo, “El estudio A apoya la hipótesis B”, “La molécula X inhibe la reacción Y”), estos se pueden representar como nodos y aristas en un grafo (utilizando una base de datos de grafos como Neo4j o similar). Un grafo de conocimiento preserva las relaciones semánticas y estructurales entre entidades de forma explícita . Por ejemplo, nodos podrían ser conceptos (variables, enfermedades, algoritmos, etc.) o artículos, y se conectan si un artículo menciona una relación entre conceptos. Esto permite consultas como “mostrar todas las evidencias que conectan con la hipótesis Z” o “¿hay relaciones comunes entre X y Y encontradas en diferentes fuentes?”. Integrar un grafo con el sistema proporciona razonamiento simbólico complementario: se puede navegar por conexiones o identificar caminos lógicos entre ideas, cosa difícil de lograr solo con texto plano. En suma, combinar un vector store con un grafo de conocimiento ofrece una memoria más rica, aprovechando tanto la búsqueda por similitud como la exploración por relaciones explícitas (en investigaciones recientes, un enfoque híbrido así mostró mejorar la precisión en respuestas frente a usar solo uno de los métodos ).
-- Almacenamiento tradicional: Además de lo anterior, se usará una base de datos relacional o documental tradicional (por ejemplo, PostgreSQL o MongoDB) para guardar información administrativa de la sesión: la secuencia de iteraciones, feedback del usuario, lista de fuentes consultadas, resúmenes ya presentados, etc. Esta base también puede almacenar los resúmenes generados de cada documento y las hipótesis formuladas en cada etapa, con identificadores. Si la sesión se prolonga por días o es deseable persistir y reanudar más adelante, esta DB relacional permite guardar el estado completo de la investigación (como un historial) y cargarlo en otra ocasión.
-
-Estrategia de memoria: Cada vez que el sistema procesa nueva información, la agregará a estos almacenes. La gestión de la memoria incluye algoritmos para decidir qué conservar con más detalle: por ejemplo, información muy relevante al tema central se almacenará con notas destacadas o nodos en el grafo, mientras que datos tangenciales podrían solo quedar en la base vectorial para búsqueda y no en el resumen principal. Periódicamente, el sistema puede realizar síntesis de memoria: combinar múltiples hallazgos en un resumen consolidado (lo que reduce la carga de prompt al LLM) y almacenar ese resumen marcado como “conocimiento consolidado hasta iteración N”. De esta forma, aunque la sesión sea larga, el sistema no necesitará releer todo cada vez, sino que puede cargar el resumen consolidado más reciente junto con piezas específicas relacionadas a la consulta actual.
-
-Cuando el LLM vaya a generar una nueva respuesta o plan, accederá a la memoria para recuperar tanto hechos relevantes (mediante consultas al vector DB por similitud) como relaciones clave (consultando el grafo o las notas estructuradas) . Esto garantiza que las respuestas nuevas integren la información previa de la sesión. Si el usuario redirige la investigación, la memoria permite volver sobre puntos previos: por ejemplo, “Revisemos aquel paper mencionado al inicio ahora con esta nueva perspectiva”, para lo cual se buscará en la base vectorial ese paper y se reanalizará su contenido bajo la nueva óptica.
-
-Procesamiento, Síntesis y Razonamiento Automatizado
-
-En el corazón del sistema está un motor de procesamiento inteligente basado en un modelo de lenguaje grande (LLM) moderno capaz de comprender texto extenso, realizar razonamiento y generar lenguaje natural. Este motor LLM (por ejemplo, GPT-4 o un modelo de código abierto altamente entrenado como LLaMA 2 con afinación instructiva) cumplirá varios roles críticos: síntesis de información, generación de hipótesis, planificación de la búsqueda, y decisión de acciones (agente).
-
-1. Comprensión y síntesis de documentos: Cada documento obtenido (paper, artículo web, etc.) es procesado por el LLM para extraer sus puntos clave. Dado que un paper puede ser largo, se manejará en trozos: el sistema dividirá el texto en secciones (resumen, introducción, resultados, etc.) y el LLM generará un resumen de cada sección y luego un resumen global. También extraerá metadatos útiles: por ejemplo, métodos, poblaciones estudiadas (en caso de papers científicos), conclusiones principales, y cualquier dato numérico importante. Esta síntesis se almacena en la memoria (p.ej., en la DB relacional y posiblemente como nodos en el grafo de conocimiento). Así, el asistente convierte documentación extensa en conocimiento digerible para su propio uso posterior y para presentar al usuario.
-
-2. Razonamiento lógico e inferencia: El LLM, potenciado con las herramientas de memoria, puede realizar razonamiento sobre la información integrada. Esto incluye comparar resultados de diferentes fuentes, detectar patrones o contradicciones, y generar hipótesis nuevas. Por ejemplo, si dos estudios presentan resultados conflictivos, el sistema puede señalar la discrepancia y hipotetizar razones (diferencias de metodología, etc.). O si se han reunido datos numéricos, puede inferir tendencias (“los datos sugieren que X aumenta cuando Y disminuye”). Estas hipótesis se formulan en lenguaje natural y se guardan, vinculadas a la evidencia de apoyo en la base de conocimiento. El motor LLM seguirá un enfoque tipo cadena de pensamiento (chain-of-thought), evaluando paso a paso las conclusiones que puede sacar, en vez de soltar directamente una respuesta final. Herramientas de prompting como el método ReAct (razonamiento con acciones) se podrían utilizar para que el LLM decida cuándo buscar más información, cuándo resumir o cuándo preguntar al usuario, imitando un proceso reflexivo.
-
-3. Decisión de releer o buscar más: Un aspecto importante es que el sistema puede volver a leer un documento ya procesado si surge la necesidad. Gracias a la memoria, sabe qué documentos se han visto. Si el contexto de la investigación cambia (por ejemplo, el usuario introduce una nueva pregunta relacionada), el sistema evaluará si alguno de los documentos previos es relevante a la nueva pregunta. Esto se facilita haciendo una búsqueda semántica interna: el asistente consulta el vector DB con la nueva pregunta para ver si fragmentos de documentos anteriores contienen información pertinente. Si encuentra alguno, lo extrae de la memoria en lugar de buscar externamente, ahorrando tiempo. Incluso podría decidir releer completamente un documento con la nueva perspectiva; en ese caso, ya no necesita descargarlo de nuevo (lo tiene en caché) pero podría volver a pasarlo por el LLM enfocándose en la sección relevante. Por ejemplo, si inicialmente un paper fue leído por sus resultados generales, pero ahora el usuario pregunta algo específico sobre la metodología de ese paper, el sistema cargará la sección de metodología (del texto almacenado) y la analizará con detalle ahora. Esta habilidad de re-enfocar en datos previos asegura que nada importante se pase por alto simplemente porque la pregunta o enfoque evolucionó.
-
-4. Ejecución de código integrada: Una característica poderosa será la capacidad del sistema de ejecutar código para realizar análisis más allá de la lectura. Se integrará un entorno de ejecución seguro (por ejemplo, un intérprete de Python sandboxed) al cual el LLM pueda enviar código cuando corresponda. El LLM actuará aquí como un agente que decide usar la herramienta de ejecución de código para ciertos subtareas . Algunos casos de uso:
-
-- Cálculos y estadísticas: Si los datos extraídos requieren cálculo (por ejemplo, promediar valores reportados en distintos estudios, o realizar una prueba estadística sencilla con datos mencionados), el LLM formulará el código (en Python con librerías como pandas, numpy, etc.) y lo ejecutará para obtener resultados numéricos precisos.
-- Visualización de datos: Si se han recolectado datos que podrían beneficiarse de un gráfico (una serie temporal, una distribución, comparación de barras), el asistente puede generar código para crear una gráfica (usando matplotlib, seaborn, etc.) . El gráfico resultante se guardará y se presentará al usuario como parte de los hallazgos, brindando una visualización clara que complemente la explicación textual.
-- Simulaciones o modelados: En casos que lo requieran, el sistema podría ejecutar pequeñas simulaciones. Por ejemplo, si la investigación es sobre un modelo matemático o un algoritmo, el asistente podría codificar una simulación del modelo para probar ciertos escenarios y reportar los resultados.
-- Uso de otras herramientas: La arquitectura de “agente con herramientas” es flexible . Podríamos incorporar más herramientas de ser necesario, como un buscador de referencias cruzadas, traductores, o incluso pequeñas bases de conocimiento específicas. Cada herramienta (incluida la ejecución de código) se define con una interfaz clara para que el LLM la invoque con los parámetros adecuados (esta es una funcionalidad ofrecida por frameworks como LangChain mediante Tool abstractions ).
-
-Tras ejecutar código, el resultado se devuelve al LLM, que lo interpreta en contexto y decide cómo incorporarlo a la base de conocimiento o a la siguiente respuesta al usuario. Por seguridad y control, habrá límites en esta ejecución (tiempo, recursos) y una revisión para evitar comandos peligrosos.
-
-5. Verificación y control de calidad: El sistema implementará comprobaciones para asegurar calidad en el razonamiento. Por ejemplo, después que el LLM genere una conclusión o hipótesis, se puede invocar una rutina de verificación: contrastar esa conclusión con los datos en la memoria o buscar contra la base vectorial si hay evidencia contraria. Esto ayuda a evitar que el asistente afirme algo incorrecto por alucinación. Si se detecta potencial error (inconsistencia entre la respuesta y la fuente), el sistema marca esa parte, busca aclaración en los documentos originales o pospone presentarla hasta tener confirmación. De esta forma, el procesamiento no es sólo sumarizar y razonar, sino razonar con sentido crítico antes de comunicar resultados.
-
-Flujo de Trabajo Iterativo del Sistema
-
-Integrando todos los componentes, el flujo de operación seguirá un ciclo controlado que va de la consulta inicial a resultados iterativos refinados, con el usuario en el circuito. El proceso detallado es el siguiente:
-
-1. Consulta inicial del usuario: El usuario plantea el tema o pregunta inicial que detonará la investigación. Por ejemplo: “Investigar los efectos del algoritmo X en el rendimiento de sistemas Y.” Esta entrada inicial se registra en la memoria (como contexto de alta relevancia).
-
-2. Planificación inicial (LLM): El orquestador (el LLM principal) analiza la consulta y el conocimiento inicial del sistema. Genera un plan de investigación inicial, identificando sub-tareas: posibles temas a buscar, tipos de fuentes necesarias (papers teóricos, informes prácticos, etc.), e hipótesis tentativas. Este plan es interno; por ejemplo, el LLM podría decidir “Buscar papers recientes sobre X”, “Consultar definiciones de Y”, “Luego comparar resultados.”
-
-3. Búsqueda y recopilación: Siguiendo el plan, el módulo de búsqueda se activa para la primera sub-tarea. Puede realizar varias consultas en paralelo: una en Google Scholar para encontrar papers clave sobre X, otra en la web general para definiciones de Y, etc. Obtiene una lista de resultados (enlaces, resúmenes). El sistema prioriza qué abrir primero (por relevancia estimada).
-
-4. Procesamiento de fuentes: Los documentos seleccionados se descargan y procesan. Supongamos que se abren dos papers principales. El LLM resume cada uno, extrae puntos clave y los almacena en la memoria (vectorial y en texto resumido). El sistema puede identificar citas dentro de esos papers que apunten a otras referencias importantes, agregando esas referencias a una cola de búsqueda para la siguiente ronda. Si aparece un PDF escaneado, se aplica OCR antes de pasarlo al LLM.
-
-5. Actualización de hipótesis y conocimiento: Con la nueva información, el LLM actualiza las hipótesis iniciales. Puede que una hipótesis se confirme parcialmente por lo leído en un paper, o quizá surja una nueva pregunta. Toda esta evolución del “estado mental” del asistente se guarda: las hipótesis se registran y enlazan a la evidencia encontrada.
-
-6. Generación de reporte intermedio: El asistente compila una síntesis del progreso hasta ahora. Incluye: los hallazgos más relevantes (citas o datos concretos con sus fuentes), las hipótesis en consideración (“Según [Autor, 2021], X mejora Y en un 20%, lo que apoya la idea de que…”), y qué pasos piensa dar a continuación (“Quedan por investigar Z y entender por qué en otro estudio se obtuvo un resultado distinto.”). Este reporte es conciso y en lenguaje claro, posiblemente enumerado para facilitar lectura.
-
-7. Presentación al usuario: Se envía el reporte intermedio al usuario a través de la interfaz. El usuario revisa los hallazgos presentados.
-
-8. Feedback del usuario: El usuario responde con sus indicaciones. Pueden ocurrir varias cosas: (a) Confirmar la dirección (“OK, continúa profundizando en esos aspectos”); (b) Redirigir la investigación (“No era necesario ahondar en Q, mejor concéntrate en Z”); (c) Aportar información (“¿Puedes revisar también este otro artículo?” o “Ten en cuenta que en la práctica W sucede…”); o (d) Corregir alguna interpretación (“Ese resultado se refiere a otra cosa, revisemos de nuevo”). El sistema recibe esta retroalimentación y la interpreta mediante el LLM para ajustar su plan.
-
-9. Ajuste del plan y memoria: El asistente incorpora el feedback. Si el usuario aportó un nuevo documento, éste se ingiere (se resume y agrega a la base de conocimiento). Si el usuario descarta una línea, el sistema puede marcar esa información en la memoria con menor relevancia (no la borramos, por si más tarde resulta útil, pero la etiquetamos como “no prioritaria”). El plan de investigación se re-calcula: quizás ahora se formulen nuevas consultas de búsqueda o se omitan algunas pendientes.
-
-10. Iteración del ciclo: Con el plan ajustado, se vuelve a la fase de búsqueda y recopilación para la siguiente ronda de información. El ciclo de buscar -> procesar -> sintetizar -> reportar -> feedback puede repetirse cuantas veces sea necesario. En cada iteración, el conocimiento acumulado crece y las hipótesis se refinan. El usuario permanece informado periódicamente mediante estos reportes iterativos, hasta que esté satisfecho con el conocimiento obtenido.
-
-11. Finalización: La sesión concluye cuando el usuario lo decide (por ejemplo, porque ya obtuvo respuesta suficiente a su pregunta original). El asistente entonces podría generar un informe final consolidando toda la investigación: una narrativa coherente que responda la pregunta inicial, respaldada por las fuentes más importantes. Este informe final se presenta al usuario. (Los datos de la sesión quedan almacenados por si se necesitan consultar después, aunque la interacción activa termine.)
-
-Este flujo detallado garantiza una investigación controlada y adaptable. Cada iteración profundiza o corrige el rumbo según sea necesario, evitando desviaciones largas sin supervisión del usuario. A lo largo de este proceso, el sistema decide dinámicamente qué información conservar, sintetizar o descartar:
-
-- Conservar: se mantiene todo aquello potencialmente relevante en la base vectorial. Además, se conserva con mayor prominencia (en resúmenes y grafos) la información confirmada como importante para las hipótesis activas.
-- Sintetizar: cuando hay mucha información redundante, el sistema la sintetiza en una forma más compacta (por ejemplo, si 5 papers repiten un hallazgo similar, se crea un enunciado general que lo resume y se referencian todos). Esto reduce la carga cognitiva y de memoria.
-- Descartar/archivar: si cierta información se determinó irrelevante o fuera de alcance por cambio de dirección, el sistema la archiva (sigue en la base de datos vectorial por si acaso, pero deja de aparecer en los resúmenes activos). También puede descartar definitivamente datos incorrectos (por ejemplo, si una fuente resultó poco fiable o el usuario indica que no la considere, el sistema la etiqueta como “ignorada” para no utilizarla en el razonamiento).
-
-Este proceso de filtrado está guiado tanto por reglas heurísticas (relevancia por puntaje de búsqueda, coincidencia con el tema central) como por el juicio del LLM, que puede evaluar si un hecho “vale la pena” según el contexto actual.
-
-Tecnologías y Herramientas Propuestas
-
-A continuación se resumen las tecnologías y decisiones clave elegidas para esta arquitectura, con su justificación:
-
-- Modelo de lenguaje (LLM): Se opta por un LLM de alta capacidad (ej. GPT-4 de OpenAI, o un modelo open-source de última generación fine-tuneado para instrucciones). Estos modelos destacan en comprensión de lenguaje complejo y generación contextual. GPT-4, por ejemplo, tiene un fuerte rendimiento en tareas de lectura de comprensión y razonamiento avanzado, adecuado para sintetizar papers científicos y generar hipótesis. Alternativamente, un modelo como LLaMA 2 o GPT-J podría desplegarse localmente si se requiere autonomía, aunque probablemente con un poco menos de rendimiento que GPT-4 en comprensión fina. El LLM es el núcleo inteligente del sistema, por lo que escoger el de mejor performance disponible es crucial.
-- Framework de orquestación (agente): Para implementar la lógica de llamar herramientas, mantener el estado de la conversación y estructurar las “decisiones” del LLM, se empleará un framework como LangChain o LlamaIndex (GPT Index). Estos frameworks proveen componentes modulares para construir agentes con memoria, herramientas y flujos conversacionales . En particular, LangChain facilita definir Tools (herramientas) que el LLM puede invocar (como búsqueda web, ejecución de código, consultas a base de datos), y maneja memorias conversacionales integradas. Usar este tipo de framework ahorra tiempo y reduce la complejidad, dado que ya implementan patrones comunes de agentes (por ejemplo, el patrón ReAct para que el LLM razone y actúe). Además, son compatibles con múltiples proveedores de LLM, dando flexibilidad para cambiar el modelo en el futuro. La elección se basaría en compatibilidad con nuestras necesidades: LangChain tiene amplia comunidad y soporte para integración con vectores (Chroma, Pinecone) y grafos, mientras que LlamaIndex destaca en indexación de documentos y puede complementar bien. Incluso se puede usar una combinación: LlamaIndex para ingesta/búsqueda de documentos, LangChain para la orquestación general.
-- Bases de datos/memoria:
-- Como se describió, un Vector DB (por ejemplo Pinecone para escalabilidad en la nube, o FAISS si se busca local) será utilizado por su rapidez en búsqueda semántica. Estas tecnologías están optimizadas para cientos de miles de embeddings, lo cual da espacio a ingerir una gran cantidad de texto académico en la sesión.
-- Para el grafo de conocimiento, Neo4j es una opción sólida (es altamente consultable con Cypher y visualizable) si se decide implementarlo. Alternativamente, se puede considerar GraphDB o incluso un framework en Python como NetworkX para grafo en memoria si la escala es moderada. La decisión de incluir un grafo se justifica si la investigación involucra muchos conceptos interrelacionados que queremos consultar explícitamente (por ejemplo, en biomedicina con relaciones gen-proteína, un grafo aporta mucho). Dado que las knowledge graphs preservan relaciones semánticas y estructura, son ideales para consultas complejas y aportar contexto a LLM .
-- La base de datos tradicional podría ser PostgreSQL (si se prefiere SQL robusto) o MongoDB (documental JSON flexible), según convenga al formato de datos que guardemos. PostgreSQL con extensiones JSONB podría dar lo mejor de ambos mundos (estructura relacional y flexibilidad JSON).
-- Herramientas de búsqueda y APIs: Se integrarán los servicios mencionados: SerpAPI para Google Scholar (servicio que retorna resultados de Scholar en JSON, acelerando la búsqueda académica ), la API de Semantic Scholar (que permite obtener títulos/resúmenes de papers por keywords o DOI), la API de arXiv (para buscar por categorías o autores en preprints), y motores de búsqueda web (Bing/Google) para la web general. Estas elecciones cubren tanto literatura científica peer-reviewed como información general. Todas ofrecen interfaces programables para automatización. El sistema modular permitirá añadir más (ej: PubMed API, arXiv for specific domain) sin re-arquitectura.
-- OCR: Se usará Tesseract OCR para procesar imágenes/PDFs escaneados debido a que es open source y suficientemente preciso en muchos casos. Para mayor precisión en documentos complicados, podría habilitarse opcionalmente Google Cloud Vision OCR o AWS Textract, aunque implican costo. Tener OCR garantiza que ninguna fuente válida quede sin análisis por estar en formato imagen.
-- Ejecución de código: Se integrará un intérprete tipo Python 3 sandbox. Esto podría correrse en un contenedor Docker aislado o un microservicio, limitando recursos para seguridad. Python es elegido por la abundancia de librerías científicas (numpy, pandas, matplotlib, SciPy) que cubren la mayoría de necesidades de análisis numérico o manipulación de datos durante la investigación. Además, muchas comunidades científicas proporcionan ejemplos en Python que pueden aprovecharse. El LLM formateará comandos en Python que este intérprete ejecutará; la salida (sea texto, tabla o imagen) se retorna. Esta arquitectura sigue el concepto de tool use de agentes, donde el LLM “sabe” llamar a Python para cálculos .
-- Control de versiones de conocimiento: Aunque no es una tecnología externa, vale mencionar la estrategia para conocimiento evolutivo. Se pueden utilizar IDs de versión para cada resumen/hipótesis. Por ejemplo, tener una estructura de datos donde cada hipótesis tiene un estado (activa, refutada, etc.) y referencias a iteraciones. Esto se puede manejar en la base de datos o incluso en el grafo (“Hipótesis X –[refutadaPor]→ Paper Y”). Este control es parte lógico del sistema para decidir qué descartar o actualizar.
-
-En conjunto, esta arquitectura aprovecha LLMs de última generación, almacenamiento vectorial + grafos para memoria semántica, y frameworks de agentes para integrar todo de manera coherente. La justificación de cada decisión radica en maximizar la eficiencia (búsquedas rápidas y relevantes con vectores), la capacidad cognitiva (LLM potente con razonamiento y herramientas) y la flexibilidad (componentes modulares reemplazables). Al combinar técnicas de Retrieval-Augmented Generation con vectores y posiblemente knowledge graph, nos aseguramos de que el sistema pueda tanto recuperar datos precisos como entender el contexto y relaciones, produciendo respuestas sólidas . La interacción iterativa con el usuario cierra el ciclo, haciendo del sistema una herramienta colaborativa y controlable, ideal para llevar a cabo investigaciones complejas de forma automatizada pero con supervisión humana en el bucle.
-
-
-
-
-
-
-
----
----
-
-
-
-
-
-
-
-Below is my basic summary of what the system should do:
+# My basic summary of what the system should do:
 
 El sistema tiene el concepto de "session" o "project". Esto es una investigacion puntual sobre algun tema que quiero hacer investigacion. Tienen un ID particular que puede ser un nombre que el usuario determina al principio.
 Una session comienza con un user input inicial, que puede tener un objetivo, explicacion del contexto, algunas recomendaciones e informacion para que lea. Puede apuntar hacia distintas fuentes de informacion: links a websites, pdfs, archivos de otros tipos como word, excel, csv, etc.
